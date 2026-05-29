@@ -1,6 +1,6 @@
 <?php
 
-namespace YConcerter\Package;
+namespace YConverter\Package;
 
 use YConverter\Config;
 use YConverter\Updater;

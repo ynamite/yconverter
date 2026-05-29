@@ -12,7 +12,7 @@
 
 namespace YConverter;
 
-use YConcerter\Package\Package;
+use YConverter\Package\Package;
 
 class Compare
 {
