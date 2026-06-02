@@ -63,6 +63,20 @@ Two generations of code coexist. **Only the namespaced pipeline above is active.
 
 The YForm migration in the active pipeline goes through **`lib/Package/YForm.php`**, not `YFormConverter.php` (YForm is driven from `convert.redaxo.php`). The dead `xform` subpage was removed from `package.yml`.
 
+### Schema detection (custom-table → YForm import)
+
+Column → YForm-field mapping lives in **`lib/YConverter/Schema/`** and is intentionally decoupled from YForm:
+
+- **`SchemaDetector`** — pure engine: an ordered, declarative rule set (`rules()`) matches on column name + MySQL type + lazily sampled values; first match wins, with the former `mapType()` logic as the LOW-confidence `typeFallback()`. An i18n pass groups `prefix_<n>` columns (suffixes resolved to `rex_clang` ids, direct or via a single offset for R4 0-based → R5 1-based) into one `lang_text`/`lang_textarea`/`lang_media` field. A final, optional AI pass refines only LOW-confidence fields. **Add new rules in `rules()`.** The detector takes no REDAXO calls — clang ids, addon availability, existing-field types, and the value sampler are injected.
+- **`FieldMapping`** — the per-field result (name, label, typeName, dbType, params, confidence, reason, source, members).
+- **`ValueSampler`** — lazy `SELECT DISTINCT … LIMIT 51` for value-aware rules.
+- **`LangDataMerger`** — the i18n collapse: pure `encodeRow()` reproduces the `yform_lang_fields` JSON byte-for-byte (`[{"clang_id","value"},…]`, `JSON_UNESCAPED_UNICODE`, empties omitted); `merge()` performs the in-place, idempotent, safe-ordered data transform (add JSON column → populate → drop member columns). Collapse only happens when the **`yform_lang_fields`** addon is installed.
+- **`Ai/*`** — optional, gap-fill-only `OpenAiProvider`/`AnthropicProvider` (one `rex_socket` call, no Composer dep) + pure `AiResponseParser`; configured in **Settings** (provider/key/model/send-samples). Never required; `Config::isValid()` ignores AI.
+
+`YFormImporter` consumes confirmed `FieldMapping[]`: `analyze()` (detect, write nothing), `import()` (new staging table → YForm table), `refreshFields()` (re-detect an already-imported `rex_yf_*` table, replacing only its `yform_field` rows). Step 4 of `convert.redaxo.php` is an **analyze → preview → apply** wizard with two lists: new custom tables and already-imported YForm tables (retroactive re-detection via `detectExistingYFormTables()`). The console `yconverter:run --dry-run` prints the detected mappings for both lists and writes nothing (read-only — it short-circuits before clone/migrate).
+
+The pure detection logic is unit-tested with a zero-dependency runner: **`php tests/run.php`** (no Composer/PHPUnit). REDAXO-coupled glue is verified manually.
+
 ## Gotchas
 
 - Package classes live in the `YConverter\Package` sub-namespace, distinct from the `YConverter\YConverter` orchestrator class — both resolve fine since `rex_autoload` is classmap-based, not path-based.
