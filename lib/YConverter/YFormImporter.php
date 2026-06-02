@@ -12,6 +12,12 @@
 
 namespace YConverter;
 
+use YConverter\Schema\FieldMapping;
+use YConverter\Schema\LangDataMerger;
+use YConverter\Schema\SchemaDetector;
+use YConverter\Schema\ValueSampler;
+use YConverter\Schema\Ai\AiProviderFactory;
+
 /**
  * Generic, reusable converter for project-specific (custom) source tables into
  * YForm-managed tables.
@@ -19,8 +25,7 @@ namespace YConverter;
  * It auto-detects cloned staging tables that belong neither to the REDAXO core nor to a
  * well-known addon (see AddonMap::isKnownTable()), so the operator can pick which of them
  * to turn into YForm tables. Each selected table becomes `rex_yf_<name>`; YForm field
- * definitions are inferred purely from the MySQL column types — there is no
- * project-specific logic, so the operator refines field types/labels in YForm afterwards.
+ * definitions are derived via SchemaDetector from column types, names, and sampled values.
  */
 class YFormImporter
 {
@@ -77,7 +82,183 @@ class YFormImporter
     }
 
     /**
-     * @param string[] $baseNames cloned source base names to convert
+     * Every table already registered in rex_yform_table (candidates for re-detection).
+     *
+     * @return array<int,array{table_name:string,name:string}>
+     */
+    public function detectExistingYFormTables()
+    {
+        $yfTable = \rex::getTable('yform_table');
+        if (!$this->tableExists($yfTable)) {
+            return [];
+        }
+        return $this->sql->getArray('SELECT table_name, name FROM ' . $this->sql->escapeIdentifier($yfTable) . ' ORDER BY name');
+    }
+
+    /**
+     * Run schema detection for a single table without writing anything.
+     *
+     * @param string $sourceTable the table to read columns + sample values from
+     *                            (staging yconverter_* for new imports, live rex_yf_* for re-detect)
+     * @param string $yfTableName the live YForm table name (for existing-field lookup); '' for new
+     *
+     * @return FieldMapping[]
+     */
+    public function analyze($sourceTable, $yfTableName = '')
+    {
+        $columns = \rex_sql::showColumns($sourceTable);
+        $sampler = (new ValueSampler($sourceTable))->asCallable();
+
+        $clangIds = array_map('intval', array_keys(\rex_clang::getAll()));
+        $langAvailable = LangDataMerger::langFieldsAvailable();
+
+        $existingFields = [];
+        if ('' !== $yfTableName) {
+            $existingFields = $this->existingFieldTypes($yfTableName);
+        }
+
+        $detector = new SchemaDetector(AiProviderFactory::fromConfig($this->config));
+
+        return $detector->detect($columns, $sampler, $clangIds, $langAvailable, $existingFields);
+    }
+
+    /**
+     * @return array<string,string> column/field name => type_name for currently-registered value fields
+     */
+    private function existingFieldTypes($yfTableName)
+    {
+        $yfField = \rex::getTable('yform_field');
+        if (!$this->tableExists($yfField)) {
+            return [];
+        }
+        $rows = $this->sql->getArray(
+            'SELECT name, type_name FROM ' . $this->sql->escapeIdentifier($yfField) . ' WHERE table_name = :t AND type_id = :v',
+            ['t' => $yfTableName, 'v' => 'value']
+        );
+        $out = [];
+        foreach ($rows as $row) {
+            $out[$row['name']] = $row['type_name'];
+        }
+        return $out;
+    }
+
+    /**
+     * Import a freshly cloned custom table as a new YForm table.
+     *
+     * @param string         $base     staging base name (without prefix)
+     * @param FieldMapping[] $mappings confirmed mappings (from analyze() or the preview)
+     */
+    public function import($base, array $mappings)
+    {
+        $staging = $this->config->getConverterTable($base);
+        $target = \rex::getTable('yf_' . $base);
+
+        if (!$this->tableExists($staging)) {
+            $this->message->addError(sprintf('Die geklonte Tabelle <code>%s</code> existiert nicht. Bitte zuerst den Klon-Schritt ausführen.', rex_escape($staging)));
+            return;
+        }
+
+        $this->sql->setQuery('DROP TABLE IF EXISTS ' . $this->sql->escapeIdentifier($target));
+        $this->sql->setQuery('CREATE TABLE ' . $this->sql->escapeIdentifier($target) . ' LIKE ' . $this->sql->escapeIdentifier($staging));
+        $this->sql->setQuery('INSERT INTO ' . $this->sql->escapeIdentifier($target) . ' SELECT * FROM ' . $this->sql->escapeIdentifier($staging));
+        \rex_sql_table::get($target)->ensurePrimaryIdColumn()->alter();
+
+        $this->applyMappings($target, $mappings);
+        $this->registerYFormTable($target, $base);
+
+        $rows = $this->sql->getArray('SELECT COUNT(*) AS cnt FROM ' . $this->sql->escapeIdentifier($target));
+        $count = isset($rows[0]['cnt']) ? $rows[0]['cnt'] : 0;
+
+        $this->message->addSuccess(sprintf(
+            'Tabelle <code>%s</code> wurde als YForm-Tabelle <code>%s</code> mit %d Datensatz/Datensätzen angelegt.',
+            rex_escape($base),
+            rex_escape($target),
+            $count
+        ));
+    }
+
+    /**
+     * Re-detect an already-imported YForm table: refresh its field definitions (and run the
+     * i18n transform) WITHOUT recreating the data table or the rex_yform_table row.
+     *
+     * @param FieldMapping[] $mappings
+     */
+    public function refreshFields($yfTableName, array $mappings)
+    {
+        if (!$this->tableExists($yfTableName)) {
+            $this->message->addError(sprintf('Die Tabelle <code>%s</code> existiert nicht.', rex_escape($yfTableName)));
+            return;
+        }
+
+        $this->applyMappings($yfTableName, $mappings);
+
+        $this->message->addSuccess(sprintf(
+            'Felddefinitionen für <code>%s</code> wurden aktualisiert.',
+            rex_escape($yfTableName)
+        ));
+    }
+
+    /**
+     * Run the i18n data transforms, then (re)write the yform_field rows from the mappings.
+     *
+     * @param FieldMapping[] $mappings
+     */
+    private function applyMappings($tableName, array $mappings)
+    {
+        $merger = new LangDataMerger();
+        foreach ($mappings as $mapping) {
+            if (!empty($mapping->members['map'])) {
+                foreach ($merger->merge($tableName, $mapping) as $note) {
+                    $this->message->addWarning($note);
+                }
+            }
+        }
+
+        $this->registerYFormFields($tableName, $mappings);
+    }
+
+    /**
+     * @param FieldMapping[] $mappings
+     */
+    private function registerYFormFields($tableName, array $mappings)
+    {
+        $yfField = \rex::getTable('yform_field');
+        if (!$this->tableExists($yfField)) {
+            return;
+        }
+
+        $delete = \rex_sql::factory();
+        $delete->setQuery('DELETE FROM ' . $delete->escapeIdentifier($yfField) . ' WHERE table_name = :t', ['t' => $tableName]);
+
+        $now = date('Y-m-d H:i:s');
+        $prio = 1;
+        foreach ($mappings as $mapping) {
+            $values = [
+                'table_name' => $tableName,
+                'prio' => $prio++,
+                'type_id' => $mapping->typeId,
+                'type_name' => $mapping->typeName,
+                'db_type' => $mapping->dbType,
+                'list_hidden' => 0,
+                'search' => 1,
+                'name' => $mapping->name,
+                'label' => $mapping->label,
+                'createdate' => $now,
+                'updatedate' => $now,
+                'createuser' => 'yconverter',
+                'updateuser' => 'yconverter',
+            ];
+            foreach ($mapping->params as $paramName => $paramValue) {
+                $values[$paramName] = $paramValue;
+            }
+            $this->insertRow($yfField, $values);
+        }
+    }
+
+    /**
+     * Convenience non-interactive path: detect + import each base name (auto-apply).
+     *
+     * @param string[] $baseNames
      */
     public function convert(array $baseNames)
     {
@@ -87,44 +268,12 @@ class YFormImporter
                 continue;
             }
             try {
-                $this->convertTable($base);
+                $mappings = $this->analyze($this->config->getConverterTable($base), '');
+                $this->import($base, $mappings);
             } catch (\rex_sql_exception $e) {
-                $this->message->addError(sprintf('Tabelle <code>%s</code> konnte nicht nach YForm konvertiert werden: %s', rex_escape($base), rex_escape($e->getMessage())));
+                $this->message->addError(sprintf('Tabelle <code>%s</code> konnte nicht konvertiert werden: %s', rex_escape($base), rex_escape($e->getMessage())));
             }
         }
-    }
-
-    private function convertTable($base)
-    {
-        $staging = $this->config->getConverterTable($base);
-        $target = \rex::getTable('yf_'.$base);
-
-        if (!$this->tableExists($staging)) {
-            $this->message->addError(sprintf('Die geklonte Tabelle <code>%s</code> existiert nicht. Bitte zuerst den Klon-Schritt ausführen.', rex_escape($staging)));
-            return;
-        }
-
-        // (Re)create the data table from the cloned data and ensure a primary id column,
-        // which YForm requires. Re-runnable: the target is dropped first.
-        $this->sql->setQuery('DROP TABLE IF EXISTS '.$this->sql->escapeIdentifier($target));
-        $this->sql->setQuery('CREATE TABLE '.$this->sql->escapeIdentifier($target).' LIKE '.$this->sql->escapeIdentifier($staging));
-        $this->sql->setQuery('INSERT INTO '.$this->sql->escapeIdentifier($target).' SELECT * FROM '.$this->sql->escapeIdentifier($staging));
-
-        \rex_sql_table::get($target)->ensurePrimaryIdColumn()->alter();
-
-        $columns = \rex_sql::showColumns($target);
-        $this->registerYFormTable($target, $base);
-        $this->registerYFormFields($target, $columns);
-
-        $rows = $this->sql->getArray('SELECT COUNT(*) AS cnt FROM '.$this->sql->escapeIdentifier($target));
-        $count = isset($rows[0]['cnt']) ? $rows[0]['cnt'] : 0;
-
-        $this->message->addSuccess(sprintf(
-            'Tabelle <code>%s</code> wurde als YForm-Tabelle <code>%s</code> mit %d Datensatz/Datensätzen angelegt. Die Feldtypen wurden aus den Spaltentypen abgeleitet und sollten in YForm geprüft werden.',
-            rex_escape($base),
-            rex_escape($target),
-            $count
-        ));
     }
 
     private function registerYFormTable($tableName, $base)
@@ -162,77 +311,6 @@ class YFormImporter
             'createuser' => 'yconverter',
             'updateuser' => 'yconverter',
         ]);
-    }
-
-    private function registerYFormFields($tableName, array $columns)
-    {
-        $yfField = \rex::getTable('yform_field');
-        if (!$this->tableExists($yfField)) {
-            return;
-        }
-
-        $delete = \rex_sql::factory();
-        $delete->setQuery('DELETE FROM '.$delete->escapeIdentifier($yfField).' WHERE table_name = :t', ['t' => $tableName]);
-
-        $now = date('Y-m-d H:i:s');
-        $prio = 1;
-        foreach ($columns as $column) {
-            $name = $column['name'];
-            if ('id' === $name) {
-                // YForm manages the primary id itself.
-                continue;
-            }
-
-            $this->insertRow($yfField, [
-                'table_name' => $tableName,
-                'prio' => $prio++,
-                'type_id' => 'value',
-                'type_name' => $this->mapType($column['type']),
-                'db_type' => $column['type'],
-                'list_hidden' => 0,
-                'search' => 1,
-                'name' => $name,
-                'label' => $name,
-                'createdate' => $now,
-                'updatedate' => $now,
-                'createuser' => 'yconverter',
-                'updateuser' => 'yconverter',
-            ]);
-        }
-    }
-
-    /**
-     * Maps a MySQL column type to a YForm value field type. Purely type-driven so it
-     * generalises across projects; the operator refines specifics (multilang, media,
-     * timestamps) in YForm afterwards.
-     */
-    private function mapType($mysqlType)
-    {
-        $type = strtolower($mysqlType);
-
-        if (0 === strpos($type, 'tinyint(1)')) {
-            return 'checkbox';
-        }
-        if (preg_match('/^(int|bigint|smallint|mediumint|tinyint)/', $type)) {
-            return 'integer';
-        }
-        if (preg_match('/^(decimal|float|double)/', $type)) {
-            return 'number';
-        }
-        if (0 === strpos($type, 'datetime') || 0 === strpos($type, 'timestamp')) {
-            return 'datetime';
-        }
-        if (0 === strpos($type, 'date')) {
-            return 'date';
-        }
-        if (0 === strpos($type, 'time')) {
-            return 'time';
-        }
-        if (preg_match('/^(text|mediumtext|longtext|tinytext)/', $type)) {
-            return 'textarea';
-        }
-
-        return 'text';
     }
 
     /**
