@@ -150,5 +150,32 @@ $r = $detect->detect($cols, sampler([]), [1, 2], true);
 eq(count($r), 1, 'single suffix column not collapsed');
 eq($r[0]->name, 'title_1', 'single member keeps original name');
 
+require __DIR__ . '/../lib/YConverter/Schema/LangDataMerger.php';
+
+use YConverter\Schema\LangDataMerger;
+
+echo "\nLangDataMerger::encodeRow\n";
+eq(
+    LangDataMerger::encodeRow([1 => 'Titel DE', 2 => 'Title EN']),
+    '[{"clang_id":1,"value":"Titel DE"},{"clang_id":2,"value":"Title EN"}]',
+    'basic two-language list'
+);
+eq(
+    LangDataMerger::encodeRow([1 => 'Käse', 2 => '日本語']),
+    '[{"clang_id":1,"value":"Käse"},{"clang_id":2,"value":"日本語"}]',
+    'unicode unescaped'
+);
+eq(
+    LangDataMerger::encodeRow([1 => 'A', 2 => '', 3 => '   ', 4 => null]),
+    '[{"clang_id":1,"value":"A"}]',
+    'empty/whitespace/null values omitted'
+);
+eq(LangDataMerger::encodeRow([]), '[]', 'empty input -> []');
+eq(
+    LangDataMerger::encodeRow([1 => '  trim me  ']),
+    '[{"clang_id":1,"value":"trim me"}]',
+    'values trimmed'
+);
+
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);
