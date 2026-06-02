@@ -415,16 +415,6 @@ class SchemaDetector
         return '';
     }
 
-    /** @return array<int,int> clangId => index (inverse helper) */
-    private function mapColumnToIndex(array $map, array $bySuffix): array
-    {
-        $out = [];
-        foreach ($map as $suffix => $clangId) {
-            $out[$clangId] = $bySuffix[$suffix];
-        }
-        return $out;
-    }
-
     /**
      * AI refinement — implemented in a later task. For now a no-op pass-through.
      *
