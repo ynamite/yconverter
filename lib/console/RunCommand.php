@@ -58,6 +58,24 @@ final class RunCommand extends \rex_console_command
             return 1;
         }
 
+        // Dry-run is read-only: print the detected mappings and exit BEFORE any destructive
+        // step (clone drops staging tables, migrate truncates the live tables).
+        if ($input->getOption('dry-run')) {
+            $importer = new YFormImporter($config, new Message());
+            $io->section('Eigene Tabellen → YForm (Dry-Run)');
+            // New custom tables.
+            foreach ($importer->detectCustomTables() as $base) {
+                $io->section('NEU: ' . $config->getConverterTable($base) . ' -> ' . \rex::getTable('yf_' . $base));
+                $this->printMappings($io, $importer->analyze($config->getConverterTable($base), ''));
+            }
+            // Existing YForm tables.
+            foreach ($importer->detectExistingYFormTables() as $t) {
+                $io->section('BESTEHEND: ' . $t['table_name']);
+                $this->printMappings($io, $importer->analyze($t['table_name'], $t['table_name']));
+            }
+            return 0;
+        }
+
         $routing = AddonMap::packageRouting();
         $only = (array) $input->getOption('package');
         if ($only) {
@@ -128,23 +146,7 @@ final class RunCommand extends \rex_console_command
 
         // 3. Custom tables -> YForm
         $yformTables = array_filter(array_map('trim', explode(',', (string) $input->getOption('yform-tables'))));
-        $dryRun = (bool) $input->getOption('dry-run');
         $importer = new YFormImporter($config, new Message());
-
-        if ($dryRun) {
-            $io->section('Eigene Tabellen → YForm (Dry-Run)');
-            // New custom tables.
-            foreach ($importer->detectCustomTables() as $base) {
-                $io->section('NEU: ' . $config->getConverterTable($base) . ' -> ' . \rex::getTable('yf_' . $base));
-                $this->printMappings($io, $importer->analyze($config->getConverterTable($base), ''));
-            }
-            // Existing YForm tables.
-            foreach ($importer->detectExistingYFormTables() as $t) {
-                $io->section('BESTEHEND: ' . $t['table_name']);
-                $this->printMappings($io, $importer->analyze($t['table_name'], $t['table_name']));
-            }
-            return 0;
-        }
 
         if ($yformTables) {
             $io->section('Eigene Tabellen → YForm');
