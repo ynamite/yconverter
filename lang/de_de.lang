@@ -60,3 +60,27 @@ yconverter_package_skipped = {0}: keine Quelldaten vorhanden – übersprungen.
 yconverter_yform_custom_tables = Eigene Tabellen → YForm
 yconverter_yform_custom_tables_info = Folgende Tabellen gehören weder zum REDAXO-Core noch zu bekannten Addons. Wähle aus, welche als YForm-Tabellen (rex_yf_…) angelegt werden sollen. Die Feldtypen werden aus den Spaltentypen abgeleitet und sollten in YForm nachgeprüft werden.
 yconverter_yform_no_custom_tables = Es wurden keine eigenen Tabellen gefunden. Bitte zuerst den Klon-Schritt ausführen.
+
+yconverter_yform_new_tables = Neue (noch nicht importierte) Tabellen
+yconverter_yform_existing_tables = Bereits importierte YForm-Tabellen (Felder neu erkennen)
+yconverter_yform_analyze = Analysieren
+yconverter_yform_apply = Mappings anwenden
+yconverter_yform_mode_import = NEU (Import)
+yconverter_yform_mode_refresh = AKTUALISIEREN (Felder ersetzen)
+yconverter_yform_refresh_warning = Achtung: Die bestehenden Felddefinitionen dieser Tabelle werden durch die bestätigten Mappings ersetzt. Manuelle Anpassungen an Feldern gehen verloren. Die Daten und die Tabellen-Registrierung bleiben unverändert.
+yconverter_yform_col_columns = Spalte(n)
+yconverter_yform_col_type = YForm-Feldtyp
+yconverter_yform_col_label = Label
+yconverter_yform_col_params = Parameter (name=wert je Zeile)
+yconverter_yform_col_confidence = Konfidenz
+yconverter_yform_col_reason = Begründung
+
+yconverter_ai_heading = KI-Unterstützung (optional)
+yconverter_ai_provider = KI-Anbieter
+yconverter_ai_provider_none = Keiner
+yconverter_ai_provider_notice = Wird nur für Spalten genutzt, die die Heuristik nicht sicher zuordnen kann. Ohne API-Key vollständig funktionsfähig.
+yconverter_ai_api_key = API-Key
+yconverter_ai_api_key_exists = (gespeichert – zum Beibehalten leer lassen)
+yconverter_ai_model = Modell (optional)
+yconverter_ai_model_placeholder = Standardmodell des Anbieters
+yconverter_ai_send_samples = Beispielwerte an die KI senden (verbessert die Erkennung)
