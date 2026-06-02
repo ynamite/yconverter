@@ -105,5 +105,50 @@ eq($r[0]->typeName, 'integer', 'int fallback');
 eq($r[0]->confidence, FieldMapping::LOW, 'fallback is LOW confidence');
 eq($r[0]->dbType, 'int(11)', 'dbType preserved');
 
+echo "\nSchemaDetector — i18n grouping\n";
+$detect = new SchemaDetector();
+
+// title_1/title_2 with clangs [1,2], addon available -> single lang_text
+$cols = [
+    ['name' => 'title_1', 'type' => 'varchar(255)'],
+    ['name' => 'title_2', 'type' => 'varchar(255)'],
+    ['name' => 'price', 'type' => 'decimal(10,2)'],
+];
+$r = $detect->detect($cols, sampler([]), [1, 2], true);
+$byName = [];
+foreach ($r as $m) { $byName[$m->name] = $m; }
+ok(isset($byName['title']), 'i18n group collapsed to base name "title"');
+eq($byName['title']->typeName, 'lang_text', 'varchar i18n -> lang_text');
+eq($byName['title']->members['map'], [1 => 'title_1', 2 => 'title_2'], 'suffix->clang map direct');
+ok(!isset($byName['title_1']) && !isset($byName['title_2']), 'member columns removed');
+ok(isset($byName['price']), 'non-i18n column untouched');
+
+// text type members -> lang_textarea
+$cols = [['name' => 'body_1', 'type' => 'text'], ['name' => 'body_2', 'type' => 'text']];
+$r = $detect->detect($cols, sampler([]), [1, 2], true);
+eq($r[0]->typeName, 'lang_textarea', 'text i18n -> lang_textarea');
+
+// media members -> lang_media
+$cols = [['name' => 'image_1', 'type' => 'varchar(255)'], ['name' => 'image_2', 'type' => 'varchar(255)']];
+$r = $detect->detect($cols, sampler([]), [1, 2], true);
+eq($r[0]->typeName, 'lang_media', 'media i18n -> lang_media');
+
+// R4 0-based suffixes {0,1} with R5 clangs {1,2} -> offset map
+$cols = [['name' => 'title_0', 'type' => 'varchar(255)'], ['name' => 'title_1', 'type' => 'varchar(255)']];
+$r = $detect->detect($cols, sampler([]), [1, 2], true);
+eq($r[0]->members['map'], [1 => 'title_0', 2 => 'title_1'], 'offset suffix->clang map (+1)');
+
+// addon NOT available -> no collapse, individual fields, language-tagged label
+$cols = [['name' => 'title_1', 'type' => 'varchar(255)'], ['name' => 'title_2', 'type' => 'varchar(255)']];
+$r = $detect->detect($cols, sampler([]), [1, 2], false);
+eq(count($r), 2, 'no collapse when yform_lang_fields unavailable');
+ok(false !== strpos($r[0]->label, '['), 'member label language-tagged');
+
+// single member (no group) -> left as-is
+$cols = [['name' => 'title_1', 'type' => 'varchar(255)']];
+$r = $detect->detect($cols, sampler([]), [1, 2], true);
+eq(count($r), 1, 'single suffix column not collapsed');
+eq($r[0]->name, 'title_1', 'single member keeps original name');
+
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);

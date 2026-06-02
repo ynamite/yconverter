@@ -249,8 +249,6 @@ class SchemaDetector
     }
 
     /**
-     * i18n grouping — implemented in a later task. For now a no-op pass-through.
-     *
      * @param FieldMapping[] $mappings
      * @param int[]          $clangIds
      *
@@ -258,7 +256,173 @@ class SchemaDetector
      */
     private function groupI18n(array $mappings, array $clangIds, bool $langFieldsAvailable): array
     {
-        return $mappings;
+        // Collect candidate groups: basePrefix => [suffix(int) => index in $mappings]
+        $groups = [];
+        foreach ($mappings as $index => $mapping) {
+            if ('existing' === $mapping->source && $this->isLangType($mapping->typeName)) {
+                continue; // already a lang field; leave it
+            }
+            if (preg_match('/^(.+)_(\d+)$/', $mapping->name, $m)) {
+                $groups[$m[1]][(int) $m[2]] = $index;
+            }
+        }
+
+        $removeIndexes = [];
+        $newMappings = [];
+
+        foreach ($groups as $base => $bySuffix) {
+            if (count($bySuffix) < 2) {
+                continue;
+            }
+            $suffixes = array_keys($bySuffix);
+            $map = $this->resolveSuffixMap($suffixes, $clangIds);
+            if (null === $map) {
+                continue; // suffixes don't line up with clang ids -> not an i18n group
+            }
+
+            if (!$langFieldsAvailable) {
+                // Degrade: tag each member's label with its language, keep individual fields.
+                foreach ($bySuffix as $suffix => $idx) {
+                    $mappings[$idx]->label = FieldMapping::prettify($base) . ' [' . $this->clangSuffixLabel($map, $bySuffix, $idx) . ']';
+                    $mappings[$idx]->reason = 'i18n-Spalte; yform_lang_fields nicht installiert — Felder bleiben einzeln';
+                }
+                continue;
+            }
+
+            // Build the suffix->column map (clangId => sourceColumn) and member column list.
+            $clangToColumn = [];
+            $columns = [];
+            foreach ($map as $suffix => $clangId) {
+                $idx = $bySuffix[$suffix];
+                $clangToColumn[$clangId] = $mappings[$idx]->name;
+                $columns[] = $mappings[$idx]->name;
+                $removeIndexes[$idx] = true;
+            }
+            ksort($clangToColumn);
+
+            $baseType = $this->langBaseType(array_map(static function ($s) use ($bySuffix, $mappings) {
+                return $mappings[$bySuffix[$s]];
+            }, $suffixes));
+
+            $newMappings[] = new FieldMapping($base, $baseType, [
+                'dbType' => 'text',
+                'confidence' => FieldMapping::HIGH,
+                'source' => 'rule:i18n',
+                'reason' => 'i18n-Gruppe ' . implode(', ', $columns) . ' → ' . $baseType,
+                'members' => ['columns' => $columns, 'map' => $clangToColumn, 'baseType' => $baseType],
+            ]);
+        }
+
+        $result = [];
+        foreach ($mappings as $i => $mapping) {
+            if (isset($removeIndexes[$i])) {
+                continue;
+            }
+            $result[] = $mapping;
+        }
+        foreach ($newMappings as $mapping) {
+            $result[] = $mapping;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Resolve column-name numeric suffixes to clang ids. Returns suffix => clangId, or null
+     * if they cannot be aligned. Tries a direct match first, then a single consistent offset
+     * (covers R4 0-based -> R5 1-based).
+     *
+     * @param int[] $suffixes
+     * @param int[] $clangIds
+     *
+     * @return array<int,int>|null
+     */
+    private function resolveSuffixMap(array $suffixes, array $clangIds): ?array
+    {
+        sort($suffixes);
+        $clangSet = array_flip($clangIds);
+
+        // Direct match.
+        $direct = true;
+        foreach ($suffixes as $s) {
+            if (!isset($clangSet[$s])) {
+                $direct = false;
+                break;
+            }
+        }
+        if ($direct) {
+            $map = [];
+            foreach ($suffixes as $s) {
+                $map[$s] = $s;
+            }
+            return $map;
+        }
+
+        // Single consistent offset.
+        $delta = min($clangIds) - min($suffixes);
+        if (0 !== $delta) {
+            $shifted = true;
+            foreach ($suffixes as $s) {
+                if (!isset($clangSet[$s + $delta])) {
+                    $shifted = false;
+                    break;
+                }
+            }
+            if ($shifted) {
+                $map = [];
+                foreach ($suffixes as $s) {
+                    $map[$s] = $s + $delta;
+                }
+                return $map;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param FieldMapping[] $memberMappings
+     */
+    private function langBaseType(array $memberMappings): string
+    {
+        $allMedia = true;
+        $anyText = false;
+        foreach ($memberMappings as $m) {
+            if ('be_media' !== $m->typeName) {
+                $allMedia = false;
+            }
+            if ('textarea' === $m->typeName || preg_match('/^(text|mediumtext|longtext)/', strtolower($m->dbType))) {
+                $anyText = true;
+            }
+        }
+        if ($allMedia) {
+            return 'lang_media';
+        }
+        if ($anyText) {
+            return 'lang_textarea';
+        }
+        return 'lang_text';
+    }
+
+    /** Helper for the unavailable-addon label path: clang id (or suffix) for a member index. */
+    private function clangSuffixLabel(array $map, array $bySuffix, int $idx): string
+    {
+        foreach ($bySuffix as $suffix => $i) {
+            if ($i === $idx) {
+                return (string) (isset($map[$suffix]) ? $map[$suffix] : $suffix);
+            }
+        }
+        return '';
+    }
+
+    /** @return array<int,int> clangId => index (inverse helper) */
+    private function mapColumnToIndex(array $map, array $bySuffix): array
+    {
+        $out = [];
+        foreach ($map as $suffix => $clangId) {
+            $out[$clangId] = $bySuffix[$suffix];
+        }
+        return $out;
     }
 
     /**
