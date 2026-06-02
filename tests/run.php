@@ -177,5 +177,31 @@ eq(
     'values trimmed'
 );
 
+require __DIR__ . '/../lib/YConverter/Schema/Ai/AiResponseParser.php';
+
+use YConverter\Schema\Ai\AiResponseParser;
+
+echo "\nAiResponseParser::parse\n";
+$allowed = ['text', 'textarea', 'url', 'be_media', 'choice'];
+
+$json = '{"teaser":{"type":"textarea","reason":"long text"},"link":{"type":"url"}}';
+$r = AiResponseParser::parse($json, $allowed);
+eq($r['teaser']['typeName'], 'textarea', 'parsed teaser type');
+eq($r['teaser']['reason'], 'long text', 'parsed reason');
+eq($r['link']['typeName'], 'url', 'parsed link type');
+eq($r['link']['params'], [], 'missing params default to []');
+
+// Unknown type is dropped.
+$r = AiResponseParser::parse('{"x":{"type":"made_up"}}', $allowed);
+ok(!isset($r['x']), 'unknown type dropped');
+
+// Prose around JSON is tolerated.
+$r = AiResponseParser::parse('Sure! Here you go:\n{"a":{"type":"text"}}\nHope that helps.', $allowed);
+eq($r['a']['typeName'], 'text', 'json extracted from surrounding prose');
+
+// Garbage -> empty.
+eq(AiResponseParser::parse('not json at all', $allowed), [], 'garbage -> empty');
+eq(AiResponseParser::parse('', $allowed), [], 'empty -> empty');
+
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);
