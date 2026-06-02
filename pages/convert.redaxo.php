@@ -107,7 +107,7 @@ if ($func && !$csrfToken->isValid()) {
             $mappings = buildMappingsFromPost($posted[$key] ?? []);
             if ('import' === $mode) {
                 $importer->import($key, $mappings);
-            } else {
+            } elseif ('refresh' === $mode) {
                 $importer->refreshFields($key, $mappings);
             }
         }
@@ -267,10 +267,10 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
 
             $paramsString = '';
             foreach ($m->params as $pName => $pVal) {
-                $paramsString .= $pName . '=' . $pVal . "\n";
+                $paramsString .= $pName . '=' . (string) $pVal . "\n";
             }
 
-            $badgeClass = ['HIGH' => 'success', 'MEDIUM' => 'info', 'LOW' => 'default'][$m->confidence];
+            $badgeClass = ['HIGH' => 'success', 'MEDIUM' => 'info', 'LOW' => 'default'][$m->confidence] ?? 'default';
             $colLabel = !empty($m->members['columns']) ? implode(', ', $m->members['columns']) : $m->name;
 
             $rows .= '<tr>'
@@ -282,7 +282,7 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
                 . '<td>' . $select . '</td>'
                 . '<td><input class="form-control" type="text" name="mapping[' . rex_escape($key) . '][' . $i . '][label]" value="' . rex_escape($m->label) . '" /></td>'
                 . '<td><textarea class="form-control" rows="1" name="mapping[' . rex_escape($key) . '][' . $i . '][params]">' . rex_escape(trim($paramsString)) . '</textarea></td>'
-                . '<td><span class="label label-' . $badgeClass . '">' . $m->confidence . '</span></td>'
+                . '<td><span class="label label-' . $badgeClass . '">' . rex_escape($m->confidence) . '</span></td>'
                 . '<td><small>' . rex_escape($m->reason) . '</small></td>'
                 . '</tr>';
         }
