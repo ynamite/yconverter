@@ -117,7 +117,7 @@ class YFormImporter
             $existingFields = $this->existingFieldTypes($yfTableName);
         }
 
-        $detector = new SchemaDetector(AiProviderFactory::fromConfig($this->config));
+        $detector = new SchemaDetector(AiProviderFactory::fromConfig($this->config), $this->config->getAiSendSamples());
 
         return $detector->detect($columns, $sampler, $clangIds, $langAvailable, $existingFields);
     }

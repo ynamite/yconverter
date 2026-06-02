@@ -210,11 +210,13 @@ echo "\nSchemaDetector — AI pass\n";
 class FakeAiProvider implements YConverter\Schema\Ai\AiFieldProvider
 {
     public $seen = [];
+    public $sawSamples = [];
     public function proposeFields(array $columns, array $allowedTypes, array $clangIds): array
     {
         $out = [];
         foreach ($columns as $c) {
             $this->seen[] = $c['name'];
+            $this->sawSamples[] = $c['samples'];
             $out[$c['name']] = ['typeName' => 'textarea', 'params' => [], 'reason' => 'AI says textarea'];
         }
         return $out;
@@ -237,6 +239,18 @@ eq($byName['website']->typeName, 'url', 'HIGH match not overridden by AI');
 eq($byName['mystery']->typeName, 'textarea', 'LOW field replaced by AI proposal');
 eq($byName['mystery']->source, 'ai', 'AI source tagged');
 eq($byName['mystery']->confidence, FieldMapping::MEDIUM, 'AI proposal is MEDIUM confidence');
+
+// aiSendSamples=false -> the provider must receive no sample values.
+$fakeNoSamples = new FakeAiProvider();
+$detectNoSamples = new SchemaDetector($fakeNoSamples, false);
+$detectNoSamples->detect([['name' => 'mystery', 'type' => 'varchar(255)']], sampler(['mystery' => ['a', 'b', 'c']]), [1], false);
+eq($fakeNoSamples->sawSamples, [[]], 'aiSendSamples=false sends empty samples');
+
+// aiSendSamples=true (default) -> samples are forwarded.
+$fakeSamples = new FakeAiProvider();
+$detectSamples = new SchemaDetector($fakeSamples, true);
+$detectSamples->detect([['name' => 'mystery', 'type' => 'varchar(255)']], sampler(['mystery' => ['a', 'b']]), [1], false);
+eq($fakeSamples->sawSamples, [['a', 'b']], 'aiSendSamples=true forwards sampled values');
 
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);

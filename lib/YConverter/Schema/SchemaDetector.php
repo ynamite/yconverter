@@ -19,10 +19,13 @@ class SchemaDetector
 {
     /** @var AiFieldProvider|null */
     private $ai;
+    /** @var bool whether sampled values may be sent to the AI provider */
+    private $aiSendSamples;
 
-    public function __construct(?AiFieldProvider $ai = null)
+    public function __construct(?AiFieldProvider $ai = null, bool $aiSendSamples = true)
     {
         $this->ai = $ai;
+        $this->aiSendSamples = $aiSendSamples;
     }
 
     /**
@@ -339,6 +342,9 @@ class SchemaDetector
      */
     private function resolveSuffixMap(array $suffixes, array $clangIds): ?array
     {
+        if (0 === count($clangIds)) {
+            return null;
+        }
         sort($suffixes);
         $clangSet = array_flip($clangIds);
 
@@ -436,7 +442,7 @@ class SchemaDetector
                 $columns[] = [
                     'name' => $mapping->name,
                     'type' => $mapping->dbType,
-                    'samples' => array_slice($sample($mapping->name), 0, 8),
+                    'samples' => $this->aiSendSamples ? array_slice($sample($mapping->name), 0, 8) : [],
                 ];
             }
         }
