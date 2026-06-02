@@ -61,6 +61,30 @@ class Shuttle
                 }
             }
 
+            // Explicit column list: only columns common to staging and the live table are
+            // written (in staging order). Live-only columns are omitted so they keep their
+            // REDAXO 5 default — except NOT NULL columns without a default (e.g. addon
+            // columns like yrewrite_*), which must get a type-appropriate empty value, or
+            // the INSERT fails.
+            $columnNames = [];
+            foreach ($convertColumns as $convertColumn) {
+                $columnNames[] = $this->sql->escapeIdentifier($convertColumn['name']);
+            }
+
+            $extraValues = [];
+            foreach ($r5Columns as $r5Column) {
+                if (in_array($r5Column['name'], $transferColumns)) {
+                    continue;
+                }
+                if ('YES' === $r5Column['null'] || null !== $r5Column['default'] || false !== strpos(strtolower((string) $r5Column['extra']), 'auto_increment')) {
+                    continue;
+                }
+                $columnNames[] = $this->sql->escapeIdentifier($r5Column['name']);
+                $extraValues[] = $this->emptyValueForType($r5Column['type']);
+            }
+
+            $columnList = '('.implode(', ', $columnNames).')';
+
             $this->sql->setQuery('TRUNCATE '.$this->sql->escapeIdentifier(\rex::getTable($table)));
             $sql = \rex_sql::factory();
             $start = 0;
@@ -83,14 +107,22 @@ class Shuttle
 
                     foreach ($convertColumns as $index => $convertColumn) {
                         $column = $row[$index];
+                        if (null === $column) {
+                            $record[] = 'NULL';
+                            continue;
+                        }
                         $record[] = $sql->escape($column);
+                    }
+
+                    foreach ($extraValues as $extraValue) {
+                        $record[] = $extraValue;
                     }
 
                     $values[] = $nl.'  ('.implode(',', $record).')';
                 }
 
                 if (!empty($values)) {;
-                    $this->sql->setQuery('INSERT INTO '.$this->sql->escapeIdentifier(\rex::getTable($table)).' VALUES '.implode(',', $values).';');
+                    $this->sql->setQuery('INSERT INTO '.$this->sql->escapeIdentifier(\rex::getTable($table)).' '.$columnList.' VALUES '.implode(',', $values).';');
                     unset($values);
                 }
             } while ($count >= $max);
@@ -114,5 +146,26 @@ class Shuttle
 
 
         rex_delete_cache();
+    }
+
+    /**
+     * SQL literal used to satisfy a live NOT NULL column (without default) that the source
+     * does not provide. Returned verbatim into the VALUES list (not user data).
+     */
+    private function emptyValueForType($type)
+    {
+        $type = strtolower($type);
+
+        if (preg_match('/^(int|bigint|smallint|mediumint|tinyint|decimal|float|double|numeric|bit|year)/', $type)) {
+            return '0';
+        }
+        if (0 === strpos($type, 'datetime') || 0 === strpos($type, 'timestamp')) {
+            return 'NOW()';
+        }
+        if (0 === strpos($type, 'date')) {
+            return 'CURDATE()';
+        }
+
+        return "''";
     }
 }

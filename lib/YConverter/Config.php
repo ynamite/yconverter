@@ -20,13 +20,33 @@ class Config
     {
         $configFile = \rex_addon::get('yconverter')->getDataPath('config.yml');
         $this->config = \rex_file::getConfig($configFile);
+    }
 
-        if (!isset($this->config['core_version'])) {
-            return null;
+    public function isValid()
+    {
+        return [] === $this->getValidationErrors();
+    }
+
+    /**
+     * @return string[] human readable problems; empty when the config is usable
+     */
+    public function getValidationErrors()
+    {
+        $errors = [];
+
+        if (empty($this->config['core_version'])) {
+            $errors[] = 'Die REDAXO-4-Version (core_version) ist nicht gesetzt.';
         }
-        if (!isset($this->config['table_prefix']) || $this->config['table_prefix'] == '') {
-            return null;
+        if (empty($this->config['table_prefix'])) {
+            $errors[] = 'Das Tabellen-Präfix (table_prefix) ist nicht gesetzt.';
         }
+
+        $db = isset($this->config['db'][$this->getOutdatedDatabaseId()]) ? $this->config['db'][$this->getOutdatedDatabaseId()] : null;
+        if (empty($db['host']) || empty($db['login']) || empty($db['name'])) {
+            $errors[] = 'Die Verbindung zur Quell-Datenbank (REDAXO 4) ist unvollständig.';
+        }
+
+        return $errors;
     }
 
 
@@ -57,7 +77,17 @@ class Config
 
     public function getOutdatedDatabaseId()
     {
-        return '5';
+        return '2';
+    }
+
+    public function getMediaSourcePath()
+    {
+        return isset($this->config['media_source_path']) ? $this->config['media_source_path'] : null;
+    }
+
+    public function getMediaSourceUrl()
+    {
+        return isset($this->config['media_source_url']) ? $this->config['media_source_url'] : null;
     }
 
     public function getNewPhpValueField()

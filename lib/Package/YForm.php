@@ -11,6 +11,11 @@ class YForm extends Package
         return 'yform';
     }
 
+    public function getSourceTables(): array
+    {
+        return ['xform_table', 'xform_field', 'xform_email_template'];
+    }
+
     public function getTables(): array
     {
         return [

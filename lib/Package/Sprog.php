@@ -9,6 +9,11 @@ class Sprog extends Package
         return 'sprog';
     }
 
+    public function getSourceTables(): array
+    {
+        return ['b_1_opf_lang'];
+    }
+
     public function getTables(): array
     {
         return [

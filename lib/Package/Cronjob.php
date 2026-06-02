@@ -9,6 +9,11 @@ class Cronjob extends Package
         return 'cronjob';
     }
 
+    public function getSourceTables(): array
+    {
+        return ['630_cronjobs'];
+    }
+
     public function getTables(): array
     {
         return [

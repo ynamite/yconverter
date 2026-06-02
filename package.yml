@@ -12,8 +12,10 @@ page:
             title: 'translate:subpage_convert'
             subpages:
                 redaxo: { title: 'translate:subpage_redaxo' }
-                xform: { title: 'translate:subpage_xform' }
         settings: { title: 'translate:subpage_settings' }
 
 requires:
     redaxo: ^5.6.5
+
+console_commands:
+    'yconverter:run': 'YConverter\Console\RunCommand'

@@ -43,12 +43,53 @@ class YConverter
         $cloner->fetchTables();
         $this->message = $cloner->getMessage();
 
+        $checklist = new InstallChecklist($this->config, $this->message);
+        $checklist->run();
+        $this->message = $checklist->getMessage();
+
         \rex_config::set('yconverter', 'yconverter', ['clone']);
     }
 
     public function getMessages()
     {
         return $this->message->getAll();
+    }
+
+    public function getMessage()
+    {
+        return $this->message;
+    }
+
+    public function dropStagingTables()
+    {
+        $cloner = new Cloner($this->config, $this->message);
+        $cloner->dropTables();
+        $this->message = $cloner->getMessage();
+    }
+
+    /**
+     * Whether the current package has cloned source tables to migrate. Packages whose
+     * addon was never used in the source (no matching staging tables) return false so the
+     * migration can skip them instead of failing on missing tables.
+     */
+    public function packageHasSource()
+    {
+        $sourceTables = $this->package->getSourceTables();
+        if (!$sourceTables) {
+            return true;
+        }
+
+        foreach ($sourceTables as $table) {
+            try {
+                if (\count(\rex_sql::showColumns($this->config->getConverterTable($table))) > 0) {
+                    return true;
+                }
+            } catch (\rex_sql_exception $e) {
+                // table does not exist -> keep looking
+            }
+        }
+
+        return false;
     }
 
     public function updateTables()
@@ -98,5 +139,24 @@ class YConverter
         $array[] = 'compare';
         $array[] = 'transfer';
         \rex_config::set('yconverter', $this->package->getName(), $array);
+    }
+
+    public function copyMedia()
+    {
+        $copier = new MediaCopier($this->config, $this->message);
+        $copier->copy();
+        $this->message = $copier->getMessage();
+
+        \rex_config::set('yconverter', 'media', ['media']);
+    }
+
+    /**
+     * @param string[] $baseNames cloned source base names to convert into YForm tables
+     */
+    public function convertCustomTables(array $baseNames)
+    {
+        $importer = new YFormImporter($this->config, $this->message);
+        $importer->convert($baseNames);
+        $this->message = $importer->getMessage();
     }
 }

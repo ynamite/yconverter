@@ -14,6 +14,11 @@ class Core extends Package
         return 'core';
     }
 
+    public function getSourceTables(): array
+    {
+        return ['article', 'clang'];
+    }
+
     public function getTables(): array
     {
         return [
@@ -150,6 +155,12 @@ class Core extends Package
                     'convertColumns' => [
                         'createdate' => 'timestamp',
                         'updatedate' => 'timestamp',
+                    ],
+                    'callbacks' => [
+                        [
+                            'function' => 'callbackEnsureMetainfoColumns',
+                            'level' => YConverter::LATE,
+                        ],
                     ],
                 ],
             ],
@@ -823,7 +834,14 @@ class Core extends Package
 
         // serialisierte Daten prüfen und umwandeln
         $modulesRexVar = $sql->getArray('SELECT `id` FROM '.$config->getConverterTable('module').' WHERE `output` LIKE "%rex_var::toArray%"');
-        $modulesArray = $sql->getArray('SELECT `id` FROM '.$config->getConverterTable('module').' WHERE `input` REGEXP ".*VALUE\\\[.*\\\]\s*\\\["');
+        // Erkennung in PHP statt per MySQL-REGEXP, das bei großen Modulinhalten ein Zeitlimit
+        // überschreiten kann ("Timeout exceeded in regular expression match").
+        $modulesArray = [];
+        foreach ($sql->getArray('SELECT `id`, `input` FROM '.$config->getConverterTable('module')) as $moduleRow) {
+            if (preg_match('@VALUE\[.*?\]\s*\[@', (string) $moduleRow['input'])) {
+                $modulesArray[] = ['id' => $moduleRow['id']];
+            }
+        }
         $modules = array_merge($modulesArray, $modulesRexVar);
         if (\count($modules)) {
             $module_ids = [];
@@ -872,6 +890,57 @@ class Core extends Package
         $sql->setQuery('UPDATE '.$r5TableEscaped.' SET `label` = REPLACE(`label`, "_BUTTON", "_WIDGET")');
     }
 
+    /**
+     * Metainfo field definitions are migrated into rex_metainfo_field, but the matching
+     * columns on the entity tables (e.g. `med_copyright` on rex_media, `art_*` on
+     * rex_article) are not created by that. Add them here — before the data is transferred,
+     * otherwise the values would be dropped by the column-intersection copy in Shuttle.
+     */
+    public function callbackEnsureMetainfoColumns($params)
+    {
+        if (!class_exists('rex_metainfo_table_manager')) {
+            return;
+        }
+
+        $config = $this->getConfig();
+        $sql = \rex_sql::factory();
+
+        // metainfo field-name prefix -> live target table
+        $prefixTables = [
+            'art_' => \rex::getTable('article'),
+            'cat_' => \rex::getTable('article'),
+            'med_' => \rex::getTable('media'),
+            'clang_' => \rex::getTable('clang'),
+        ];
+
+        // type_id -> dbtype/dblength (staging and live rex_metainfo_type are identical)
+        $types = [];
+        foreach ($sql->getArray('SELECT `id`, `dbtype`, `dblength` FROM '.$sql->escapeIdentifier($config->getConverterTable('metainfo_type'))) as $type) {
+            $types[$type['id']] = ['dbtype' => $type['dbtype'], 'dblength' => (int) $type['dblength']];
+        }
+
+        $fields = $sql->getArray('SELECT `name`, `type_id` FROM '.$sql->escapeIdentifier($config->getConverterTable('metainfo_field')));
+        foreach ($fields as $field) {
+            $table = null;
+            foreach ($prefixTables as $prefix => $targetTable) {
+                if (0 === strpos($field['name'], $prefix)) {
+                    $table = $targetTable;
+                    break;
+                }
+            }
+            if (null === $table || !isset($types[$field['type_id']])) {
+                continue;
+            }
+
+            $tableManager = new \rex_metainfo_table_manager($table);
+            if (!$tableManager->hasColumn($field['name'])) {
+                $tableManager->addColumn($field['name'], $types[$field['type_id']]['dbtype'], $types[$field['type_id']]['dblength']);
+            }
+        }
+
+        \rex_delete_cache();
+    }
+
     private function getSortedSlices($articleId, $clangId, $revision, $table)
     {
         $sql = \rex_sql::factory();
@@ -886,23 +955,41 @@ class Core extends Package
                 AND revision = :revision
             ', ['articleId' => $articleId, 'clangId' => $clangId, 'revision' => $revision]);
 
+        if (!\count($items)) {
+            return [];
+        }
+
+        // R4 stored the ordered slices as a linked list per ctype: `priority` currently
+        // holds the old `re_article_slice_id`, i.e. the id of the predecessor slice
+        // (0 for the first slice of a ctype). Walk each ctype's chain separately —
+        // otherwise the multiple "predecessor 0" heads collide in a single map and only
+        // one ctype would get ordered while the others are silently dropped.
+        $sliceMap = [];
+        $byCtype = [];
+        foreach ($items as $slice) {
+            $sliceMap[$slice['id']] = $slice;
+            $byCtype[$slice['ctype_id']][$slice['priority']] = $slice['id']; // predecessorId => sliceId
+        }
+
         $slices = [];
-        if (\count($items)) {
-            $sliceMap = [];
-            $sliceRefMap = [];
-            foreach ($items as $slice) {
-                $sliceMap[$slice['id']] = $slice;
-                $sliceRefMap[$slice['priority']] = $slice['id'];
+        foreach ($byCtype as $byPredecessor) {
+            $seen = [];
+            $currentId = isset($byPredecessor[0]) ? $byPredecessor[0] : null;
+            while (null !== $currentId && isset($sliceMap[$currentId]) && !isset($seen[$currentId])) {
+                $seen[$currentId] = true;
+                $slices[] = $sliceMap[$currentId];
+                $currentId = isset($byPredecessor[$currentId]) ? $byPredecessor[$currentId] : null;
             }
-            $nextSlice = $sliceMap[$sliceRefMap[0]];
-            while ($nextSlice) {
-                $slices[] = $nextSlice;
-                if (!isset($sliceRefMap[$nextSlice['id']])) {
-                    break;
+
+            // Defensive: never drop slices whose predecessor pointer is broken/missing.
+            foreach ($byPredecessor as $sliceId) {
+                if (!isset($seen[$sliceId])) {
+                    $seen[$sliceId] = true;
+                    $slices[] = $sliceMap[$sliceId];
                 }
-                $nextSlice = $sliceMap[$sliceRefMap[$nextSlice['id']]];
             }
         }
+
         return $slices;
     }
 }

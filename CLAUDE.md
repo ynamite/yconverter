@@ -24,15 +24,17 @@ Migration runs as an ordered set of stages, orchestrated by `YConverter\YConvert
 4. **`compareTables()` → `Compare`** — warns about tables/columns present in the staged data but missing from the live R5 tables.
 5. **`transferData()` → `Shuttle`** — **TRUNCATEs the real R5 tables** and copies the intersecting columns from `yconverter_*` into them, then clears the developer-addon export dirs and the cache.
 
-`convert.redaxo.php` exposes a `run` action that executes compare → update → modify → transfer in one go.
+`convert.redaxo.php` exposes a `run` action that executes update → modify → compare → transfer in one go.
 
-### Two databases, confusingly numbered
+### Two databases
 
-`boot.php` merges the `db.5` connection from `config.yml` into REDAXO's DB config. Therefore:
-- `rex_sql::factory('5')` / DB id `'5'` → the **OLD / source** database (the REDAXO 4 site). The slot is literally named `5` even though it holds the version-4 source.
+`boot.php` merges the `db.2` connection from the addon's own `config.yml` into REDAXO's DB config (in the backend and under CLI). Therefore:
+- `rex_sql::factory('2')` / DB id `'2'` → the **OLD / source** database (the REDAXO 4 site). Connection `2` is REDAXO 5's conventional "second connection".
 - `rex_sql::factory()` (default id `1`) → the **current REDAXO 5** database.
 
-`YConverter\Config` centralizes the conventions: source prefix + `core_version` (from `config.yml`), the `yconverter_` staging prefix, source DB id `'5'`, and the hardcoded R5 PHP/HTML value-field ids (`19`/`20`) used when folding old `php`/`html` slice columns into `REX_VALUE` slots.
+The source DB can be the live R4 site DB **or** a database into which a `mysqldump` of it was restored — same mechanism.
+
+`YConverter\Config` centralizes the conventions: source prefix + `core_version` (from `config.yml`), the `yconverter_` staging prefix, source DB id `'2'`, the optional `media_source_path`, and the hardcoded R5 PHP/HTML value-field ids (`19`/`20`) used when folding old `php`/`html` slice columns into `REX_VALUE` slots. `Config::isValid()` / `getValidationErrors()` gate the pipeline before any destructive step.
 
 ### The `Package` abstraction (`lib/Package/`)
 
@@ -47,7 +49,7 @@ One subclass per migratable subsystem — `Core`, `Cronjob`, `Sprog`, `YForm` �
 
 ## Backend pages (`pages/`, registered in `package.yml`)
 
-Page tree (admin-only): `yconverter` → `convert` → {`redaxo`, `xform`}, plus `settings`. `index.php` dispatches via `rex_be_controller::includeCurrentPageSubPath()`.
+Page tree (admin-only): `yconverter` → `convert` → `redaxo`, plus `settings`. `index.php` dispatches via `rex_be_controller::includeCurrentPageSubPath()`.
 
 - **`convert.redaxo.php`** — the active driver. Renders one panel per package (`yconverter`/`core`/`cronjob`/`sprog`/`yform`), all on this single page, with CSRF-guarded step buttons that instantiate the right `Package` and call `YConverter`.
 - **`settings.php`** — active settings form (source DB connection, `core_version`, table prefix); writes `data/addons/yconverter/config.yml`.
@@ -59,7 +61,7 @@ Two generations of code coexist. **Only the namespaced pipeline above is active.
 - `lib/YConverter/_Converter.php` (class `YConverter\Converter`) and `lib/YConverter/YFormConverter.php`
 - `pages/_convert.redaxo.php` and `pages/yform.inc.php`
 
-The YForm migration in the active pipeline goes through **`lib/Package/YForm.php`**, not `YFormConverter.php`. The `xform` subpage declared in `package.yml` has no matching active page file (YForm is driven from `convert.redaxo.php`).
+The YForm migration in the active pipeline goes through **`lib/Package/YForm.php`**, not `YFormConverter.php` (YForm is driven from `convert.redaxo.php`). The dead `xform` subpage was removed from `package.yml`.
 
 ## Gotchas
 

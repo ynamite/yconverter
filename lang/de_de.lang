@@ -8,6 +8,7 @@ subpage_settings = Einstelllungen
 
 yconverter_core_version = REDAXO Version
 yconverter_database_connection = Datenbankverbindung
+yconverter_database_connection_notice = Verbindung zur REDAXO-4-Quelldatenbank (wird als Verbindung 2 gespeichert). Entweder die laufende REDAXO-4-Datenbank oder eine Datenbank, in die ein mysqldump der alten Seite eingespielt wurde.
 yconverter_database_host = Host
 yconverter_database_name = Datenbankname
 yconverter_database_password = Passwort
@@ -17,9 +18,14 @@ yconverter_database_user = Benutzer
 yconverter_settings_saved = Einstellungen wurden gespeichert!
 yconverter_settings_error = Einstellungen konnten nicht gespeichert werden, Schreibrechte überprüfen für: {0}
 yconverter_table_prefix = Tabellenprefix
+yconverter_media_source_url = Medien-Quell-URL (alte Website)
+yconverter_media_source_url_notice = Basis-URL der alten REDAXO-4-Website, z. B. https://www.example.com. Beim Medien-Schritt werden die Dateien aus rex_media über HTTP von .../files/<dateiname> heruntergeladen. Empfohlen, wenn die alte Seite noch online ist. Bereits vorhandene Dateien werden übersprungen.
+yconverter_media_source_path = Medien-Quellpfad (lokal, "files/")
+yconverter_media_source_path_notice = Alternative zur URL: absoluter, lokal erreichbarer Pfad zum "files/"-Verzeichnis. Diese Dateien (ohne "files/addons") werden nach "media/" kopiert. Wird nur verwendet, wenn keine Quell-URL gesetzt ist.
 
 
 yconverter_clone_tables = Alle Tabellen der veralteten Version klonen.
+yconverter_copy_media = Mediendateien aus dem REDAXO-4-"files/"-Verzeichnis nach "media/" kopieren.
 yconverter_compare_tables_and_columns = Fehlende Tabellen und Spalten überprüfen.
 yconverter_execute = Ausführen
 yconverter_modify_table_contents = Tabelleninhalte von Version 4 auf 5 anpassen.
@@ -29,3 +35,28 @@ yconverter_update_table_structures_to_last_version = Tabellenstrukturen auf die 
 
 
 yconverter_cronjob_info = Das Intervall muss am Ende neu gesetzt werden.
+
+
+yconverter_intro = So gehst du vor: hinterlege zuerst Quelldatenbank, Version und Medien-Quellpfad in den Einstellungen und arbeite dann die Schritte 1–4 der Reihe nach ab. Die Schritte sind wiederholbar.
+yconverter_open_settings = Einstellungen öffnen
+yconverter_done = erledigt
+yconverter_step1_heading = Tabellen klonen
+yconverter_step1_text = Kopiert alle Tabellen der REDAXO-4-Quelle als Staging-Tabellen in die REDAXO-5-Datenbank. Anschließend wird angezeigt, welche REDAXO-5-Addons installiert sein sollten.
+yconverter_tables_cloned_count = {0} Tabellen wurden geklont.
+yconverter_show_cloned_tables = Geklonte Tabellen anzeigen
+yconverter_step2_heading = Daten migrieren
+yconverter_step2_text = Passt Struktur und Inhalte aller Pakete an und überträgt sie in die echten REDAXO-5-Tabellen (Struktur → Inhalte → Vergleich → Übertragen). Achtung: die Übertragung leert die Zieltabellen.
+yconverter_migrate_all_packages = Alle Daten migrieren
+yconverter_advanced_single_packages = Erweitert: Bereiche einzeln ausführen
+yconverter_run_all = Alle Schritte
+yconverter_step3_heading = Medien kopieren
+yconverter_step3_text = Lädt die Mediendateien (laut rex_media) per HTTP von der alten Website herunter (Medien-Quell-URL) oder kopiert sie aus einem lokalen files/-Verzeichnis (ohne files/addons) nach media/. Bereits vorhandene Dateien werden übersprungen. Bei vielen Dateien besser den CLI-Befehl php redaxo/bin/console yconverter:run verwenden.
+yconverter_reset_done = Die Staging-Tabellen und der Fortschritt wurden zurückgesetzt. Die REDAXO-5-Tabellen bleiben unverändert.
+yconverter_invalid_config = YConverter ist nicht vollständig konfiguriert:
+yconverter_download_report = Bericht herunterladen
+yconverter_package_skipped = {0}: keine Quelldaten vorhanden – übersprungen.
+
+
+yconverter_yform_custom_tables = Eigene Tabellen → YForm
+yconverter_yform_custom_tables_info = Folgende Tabellen gehören weder zum REDAXO-Core noch zu bekannten Addons. Wähle aus, welche als YForm-Tabellen (rex_yf_…) angelegt werden sollen. Die Feldtypen werden aus den Spaltentypen abgeleitet und sollten in YForm nachgeprüft werden.
+yconverter_yform_no_custom_tables = Es wurden keine eigenen Tabellen gefunden. Bitte zuerst den Klon-Schritt ausführen.

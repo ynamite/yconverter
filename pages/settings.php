@@ -14,7 +14,7 @@ $addon = rex_addon::get('yconverter');
 $configFile = $addon->getDataPath('config.yml');
 $config = array_merge([
     'db' => [
-        '5' => [
+        '2' => [
             'host' => null,
             'login' => null,
             'password' => null,
@@ -24,6 +24,8 @@ $config = array_merge([
     ],
     'core_version' => null,
     'table_prefix' => 'rex_',
+    'media_source_path' => null,
+    'media_source_url' => null,
 ], rex_file::getConfig($configFile));
 
 $csrfToken = rex_csrf_token::factory('system');
@@ -39,15 +41,17 @@ if (!$csrfToken->isValid()) {
         ['persistent', 'bool'],
         ['core_version', 'string'],
         ['table_prefix', 'string', 'rex_'],
+        ['media_source_path', 'string'],
+        ['media_source_url', 'string'],
     ], null);
 
     if (is_array($newConfig)) {
-        if ($newConfig['login'] != '' && $newConfig['password'] == '' && $config['db']['5']['password'] != '') {
-            $newConfig['password'] = $config['db']['5']['password'];
+        if ($newConfig['login'] != '' && $newConfig['password'] == '' && $config['db']['2']['password'] != '') {
+            $newConfig['password'] = $config['db']['2']['password'];
         }
         $config = $newConfig;
         foreach (['host', 'login', 'password', 'name', 'persistent'] as $key) {
-            $config['db']['5'][$key] = $config[$key];
+            $config['db']['2'][$key] = $config[$key];
             unset($config[$key]);
         }
         if (rex_file::putConfig($configFile, $config)) {
@@ -105,24 +109,37 @@ $n['field'] = '<input class="form-control" type="text" name="settings[table_pref
 $formElements[] = $n;
 
 $n = [];
+$n['label'] = '<label>'.$addon->i18n('media_source_url').'</label>';
+$n['field'] = '<input class="form-control" type="text" name="settings[media_source_url]" value="'.rex_escape((string) $config['media_source_url']).'" placeholder="https://www.example.com" />';
+$n['note'] = $addon->i18n('media_source_url_notice');
+$formElements[] = $n;
+
+$n = [];
+$n['label'] = '<label>'.$addon->i18n('media_source_path').'</label>';
+$n['field'] = '<input class="form-control" type="text" name="settings[media_source_path]" value="'.rex_escape((string) $config['media_source_path']).'" />';
+$n['note'] = $addon->i18n('media_source_path_notice');
+$formElements[] = $n;
+
+$n = [];
 $n['header'] = '<h3>'.$addon->i18n('database_connection').'</h3>';
 $n['label'] = '<label>'.$addon->i18n('database_host').'</label>';
-$n['field'] = '<input class="form-control" type="text" name="settings[host]" value="'.rex_escape($config['db']['5']['host']).'" />';
+$n['field'] = '<input class="form-control" type="text" name="settings[host]" value="'.rex_escape($config['db']['2']['host']).'" />';
+$n['note'] = $addon->i18n('database_connection_notice');
 $formElements[] = $n;
 
 $n = [];
 $n['label'] = '<label>'.$addon->i18n('database_user').'</label>';
-$n['field'] = '<input class="form-control" type="text" name="settings[login]" value="'.rex_escape($config['db']['5']['login']).'" />';
+$n['field'] = '<input class="form-control" type="text" name="settings[login]" value="'.rex_escape($config['db']['2']['login']).'" />';
 $formElements[] = $n;
 
 $n = [];
 $n['label'] = '<label>'.$addon->i18n('database_password').'</label>';
-$n['field'] = '<input class="form-control" type="password" name="settings[password]" value="" placeholder="'.rex_escape(($config['db']['5']['password'] ? $addon->i18n('database_password_exists') : '')).'" />';
+$n['field'] = '<input class="form-control" type="password" name="settings[password]" value="" placeholder="'.rex_escape(($config['db']['2']['password'] ? $addon->i18n('database_password_exists') : '')).'" />';
 $formElements[] = $n;
 
 $n = [];
 $n['label'] = '<label>'.$addon->i18n('database_name').'</label>';
-$n['field'] = '<input class="form-control" type="text" name="settings[name]" value="'.rex_escape($config['db']['5']['name']).'" />';
+$n['field'] = '<input class="form-control" type="text" name="settings[name]" value="'.rex_escape($config['db']['2']['name']).'" />';
 $formElements[] = $n;
 
 $fragment = new rex_fragment();
@@ -133,7 +150,7 @@ $formElements = [];
 $n = [];
 $n['reverse'] = true;
 $n['label'] = '<label>'.$addon->i18n('database_persistent').'</label>';
-$n['field'] = '<input type="checkbox"  name="settings[persistent]" value="1" '.($config['db']['5']['persistent'] ? 'checked="checked" ' : '').'/>';
+$n['field'] = '<input type="checkbox"  name="settings[persistent]" value="1" '.($config['db']['2']['persistent'] ? 'checked="checked" ' : '').'/>';
 $formElements[] = $n;
 
 $fragment = new rex_fragment();
