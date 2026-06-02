@@ -15,6 +15,7 @@ namespace YConverter\Console;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use YConverter\AddonMap;
 use YConverter\Cloner;
 use YConverter\Config;
@@ -42,7 +43,8 @@ final class RunCommand extends \rex_console_command
             ->addOption('package', 'p', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Nur diese Pakete migrieren (mehrfach möglich, Standard: alle)')
             ->addOption('skip-clone', null, InputOption::VALUE_NONE, 'Klon-Schritt überspringen')
             ->addOption('skip-media', null, InputOption::VALUE_NONE, 'Medien-Kopie überspringen')
-            ->addOption('yform-tables', null, InputOption::VALUE_REQUIRED, 'Kommaseparierte Liste eigener Tabellen, die nach YForm konvertiert werden sollen');
+            ->addOption('yform-tables', null, InputOption::VALUE_REQUIRED, 'Kommaseparierte Liste eigener Tabellen, die nach YForm konvertiert werden sollen')
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Nur die erkannten Feld-Mappings ausgeben, nichts schreiben');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -126,13 +128,30 @@ final class RunCommand extends \rex_console_command
 
         // 3. Custom tables -> YForm
         $yformTables = array_filter(array_map('trim', explode(',', (string) $input->getOption('yform-tables'))));
+        $dryRun = (bool) $input->getOption('dry-run');
+        $importer = new YFormImporter($config, new Message());
+
+        if ($dryRun) {
+            $io->section('Eigene Tabellen → YForm (Dry-Run)');
+            // New custom tables.
+            foreach ($importer->detectCustomTables() as $base) {
+                $io->section('NEU: ' . $config->getConverterTable($base) . ' -> ' . \rex::getTable('yf_' . $base));
+                $this->printMappings($io, $importer->analyze($config->getConverterTable($base), ''));
+            }
+            // Existing YForm tables.
+            foreach ($importer->detectExistingYFormTables() as $t) {
+                $io->section('BESTEHEND: ' . $t['table_name']);
+                $this->printMappings($io, $importer->analyze($t['table_name'], $t['table_name']));
+            }
+            return 0;
+        }
+
         if ($yformTables) {
             $io->section('Eigene Tabellen → YForm');
-            $converter = new YConverter(new Core());
-            $converter->convertCustomTables($yformTables);
-            $this->renderMessages($io, $converter->getMessages());
+            $importer->convert($yformTables);
+            $this->renderMessages($io, $importer->getMessage()->getAll());
         } else {
-            $detected = (new YFormImporter($config, new Message()))->detectCustomTables();
+            $detected = $importer->detectCustomTables();
             if ($detected) {
                 $io->note('Erkannte eigene Tabellen (mit --yform-tables= konvertieren): '.implode(', ', $detected));
             }
@@ -177,6 +196,20 @@ final class RunCommand extends \rex_console_command
 
         $io->success('YConverter-Lauf abgeschlossen.');
         return 0;
+    }
+
+    private function printMappings(SymfonyStyle $io, array $mappings)
+    {
+        $rows = [];
+        foreach ($mappings as $m) {
+            $cols = !empty($m->members['columns']) ? implode(', ', $m->members['columns']) : $m->name;
+            $params = [];
+            foreach ($m->params as $k => $v) {
+                $params[] = $k . '=' . (string) $v;
+            }
+            $rows[] = [$cols, $m->typeName, $m->confidence, implode(' ', $params), $m->reason];
+        }
+        $io->table(['Spalte(n)', 'Typ', 'Konfidenz', 'Params', 'Begründung'], $rows);
     }
 
     /**
