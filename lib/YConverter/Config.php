@@ -99,4 +99,25 @@ class Config
     {
         return '20';
     }
+
+    public function getAiProvider()
+    {
+        return isset($this->config['ai_provider']) ? (string) $this->config['ai_provider'] : 'none';
+    }
+
+    public function getAiApiKey()
+    {
+        return isset($this->config['ai_api_key']) ? (string) $this->config['ai_api_key'] : '';
+    }
+
+    public function getAiModel()
+    {
+        return isset($this->config['ai_model']) ? (string) $this->config['ai_model'] : '';
+    }
+
+    public function getAiSendSamples()
+    {
+        // Default ON (better results); operator can disable to send schema only.
+        return !isset($this->config['ai_send_samples']) || (bool) $this->config['ai_send_samples'];
+    }
 }

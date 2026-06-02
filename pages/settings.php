@@ -26,6 +26,10 @@ $config = array_merge([
     'table_prefix' => 'rex_',
     'media_source_path' => null,
     'media_source_url' => null,
+    'ai_provider' => 'none',
+    'ai_api_key' => null,
+    'ai_model' => null,
+    'ai_send_samples' => true,
 ], rex_file::getConfig($configFile));
 
 $csrfToken = rex_csrf_token::factory('system');
@@ -43,11 +47,18 @@ if (!$csrfToken->isValid()) {
         ['table_prefix', 'string', 'rex_'],
         ['media_source_path', 'string'],
         ['media_source_url', 'string'],
+        ['ai_provider', 'string', 'none'],
+        ['ai_api_key', 'string'],
+        ['ai_model', 'string'],
+        ['ai_send_samples', 'bool'],
     ], null);
 
     if (is_array($newConfig)) {
         if ($newConfig['login'] != '' && $newConfig['password'] == '' && $config['db']['2']['password'] != '') {
             $newConfig['password'] = $config['db']['2']['password'];
+        }
+        if (isset($newConfig['ai_api_key']) && '' === $newConfig['ai_api_key'] && !empty($config['ai_api_key'])) {
+            $newConfig['ai_api_key'] = $config['ai_api_key'];
         }
         $config = $newConfig;
         foreach (['host', 'login', 'password', 'name', 'persistent'] as $key) {
@@ -120,6 +131,32 @@ $n['field'] = '<input class="form-control" type="text" name="settings[media_sour
 $n['note'] = $addon->i18n('media_source_path_notice');
 $formElements[] = $n;
 
+$aiProvider = new rex_select();
+$aiProvider->setName('settings[ai_provider]');
+$aiProvider->setAttribute('class', 'form-control selectpicker');
+$aiProvider->setSize(1);
+$aiProvider->setSelected($config['ai_provider'] ?? 'none');
+$aiProvider->addOption($addon->i18n('ai_provider_none'), 'none');
+$aiProvider->addOption('OpenAI', 'openai');
+$aiProvider->addOption('Anthropic', 'anthropic');
+
+$n = [];
+$n['header'] = '<h3>' . $addon->i18n('ai_heading') . '</h3>';
+$n['label'] = '<label>' . $addon->i18n('ai_provider') . '</label>';
+$n['field'] = $aiProvider->get();
+$n['note'] = $addon->i18n('ai_provider_notice');
+$formElements[] = $n;
+
+$n = [];
+$n['label'] = '<label>' . $addon->i18n('ai_api_key') . '</label>';
+$n['field'] = '<input class="form-control" type="password" name="settings[ai_api_key]" value="" placeholder="' . rex_escape(!empty($config['ai_api_key']) ? $addon->i18n('ai_api_key_exists') : '') . '" />';
+$formElements[] = $n;
+
+$n = [];
+$n['label'] = '<label>' . $addon->i18n('ai_model') . '</label>';
+$n['field'] = '<input class="form-control" type="text" name="settings[ai_model]" value="' . rex_escape((string) ($config['ai_model'] ?? '')) . '" placeholder="' . rex_escape($addon->i18n('ai_model_placeholder')) . '" />';
+$formElements[] = $n;
+
 $n = [];
 $n['header'] = '<h3>'.$addon->i18n('database_connection').'</h3>';
 $n['label'] = '<label>'.$addon->i18n('database_host').'</label>';
@@ -151,6 +188,12 @@ $n = [];
 $n['reverse'] = true;
 $n['label'] = '<label>'.$addon->i18n('database_persistent').'</label>';
 $n['field'] = '<input type="checkbox"  name="settings[persistent]" value="1" '.($config['db']['2']['persistent'] ? 'checked="checked" ' : '').'/>';
+$formElements[] = $n;
+
+$n = [];
+$n['reverse'] = true;
+$n['label'] = '<label>' . $addon->i18n('ai_send_samples') . '</label>';
+$n['field'] = '<input type="checkbox" name="settings[ai_send_samples]" value="1" ' . (($config['ai_send_samples'] ?? true) ? 'checked="checked" ' : '') . '/>';
 $formElements[] = $n;
 
 $fragment = new rex_fragment();
