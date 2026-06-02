@@ -248,7 +248,12 @@ class YFormImporter
                 'createuser' => 'yconverter',
                 'updateuser' => 'yconverter',
             ];
+            // Merge type-specific params (e.g. choices, multiple), but never let a rule or
+            // AI proposal overwrite the fixed columns above.
             foreach ($mapping->params as $paramName => $paramValue) {
+                if (array_key_exists($paramName, $values)) {
+                    continue;
+                }
                 $values[$paramName] = $paramValue;
             }
             $this->insertRow($yfField, $values);
