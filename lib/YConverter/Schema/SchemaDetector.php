@@ -416,8 +416,6 @@ class SchemaDetector
     }
 
     /**
-     * AI refinement — implemented in a later task. For now a no-op pass-through.
-     *
      * @param FieldMapping[]         $mappings
      * @param callable(string):array $sample
      * @param int[]                  $clangIds
@@ -426,6 +424,58 @@ class SchemaDetector
      */
     private function aiPass(array $mappings, callable $sample, array $clangIds): array
     {
+        if (null === $this->ai) {
+            return $mappings;
+        }
+
+        $lowByName = [];
+        $columns = [];
+        foreach ($mappings as $mapping) {
+            if (FieldMapping::LOW === $mapping->confidence && !$this->isLangType($mapping->typeName)) {
+                $lowByName[$mapping->name] = $mapping;
+                $columns[] = [
+                    'name' => $mapping->name,
+                    'type' => $mapping->dbType,
+                    'samples' => array_slice($sample($mapping->name), 0, 8),
+                ];
+            }
+        }
+
+        if (0 === count($columns)) {
+            return $mappings;
+        }
+
+        try {
+            $proposals = $this->ai->proposeFields($columns, $this->allowedTypes(), $clangIds);
+        } catch (\Throwable $e) {
+            return $mappings; // AI failure must never worsen the result
+        }
+
+        foreach ($mappings as $i => $mapping) {
+            if (!isset($lowByName[$mapping->name]) || !isset($proposals[$mapping->name])) {
+                continue;
+            }
+            $p = $proposals[$mapping->name];
+            $mappings[$i] = new FieldMapping($mapping->name, $p['typeName'], [
+                'label' => $mapping->label,
+                'dbType' => $mapping->dbType,
+                'params' => isset($p['params']) ? $p['params'] : [],
+                'confidence' => FieldMapping::MEDIUM,
+                'reason' => isset($p['reason']) ? $p['reason'] : 'KI-Vorschlag',
+                'source' => 'ai',
+            ]);
+        }
+
         return $mappings;
+    }
+
+    /** @return array<int,string> the YForm field types the detector/AI may produce */
+    private function allowedTypes(): array
+    {
+        return [
+            'text', 'textarea', 'choice', 'be_media', 'url', 'email',
+            'datetime', 'date', 'time', 'integer', 'number', 'checkbox',
+            'lang_text', 'lang_textarea', 'lang_media',
+        ];
     }
 }

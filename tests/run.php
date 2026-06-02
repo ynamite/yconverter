@@ -177,6 +177,7 @@ eq(
     'values trimmed'
 );
 
+require __DIR__ . '/../lib/YConverter/Schema/Ai/AiPrompt.php';
 require __DIR__ . '/../lib/YConverter/Schema/Ai/AiResponseParser.php';
 
 use YConverter\Schema\Ai\AiResponseParser;
@@ -202,6 +203,40 @@ eq($r['a']['typeName'], 'text', 'json extracted from surrounding prose');
 // Garbage -> empty.
 eq(AiResponseParser::parse('not json at all', $allowed), [], 'garbage -> empty');
 eq(AiResponseParser::parse('', $allowed), [], 'empty -> empty');
+
+echo "\nSchemaDetector — AI pass\n";
+
+// Fake provider: proposes textarea for everything it's asked about, and records what it saw.
+class FakeAiProvider implements YConverter\Schema\Ai\AiFieldProvider
+{
+    public $seen = [];
+    public function proposeFields(array $columns, array $allowedTypes, array $clangIds): array
+    {
+        $out = [];
+        foreach ($columns as $c) {
+            $this->seen[] = $c['name'];
+            $out[$c['name']] = ['typeName' => 'textarea', 'params' => [], 'reason' => 'AI says textarea'];
+        }
+        return $out;
+    }
+}
+
+$fake = new FakeAiProvider();
+$detect = new SchemaDetector($fake);
+
+$cols = [
+    ['name' => 'website', 'type' => 'varchar(255)'], // HIGH (url) — must NOT be sent
+    ['name' => 'mystery', 'type' => 'varchar(255)'], // LOW (type fallback text) — sent
+];
+$r = $detect->detect($cols, sampler([]), [1], false);
+$byName = [];
+foreach ($r as $m) { $byName[$m->name] = $m; }
+
+eq($fake->seen, ['mystery'], 'only LOW-confidence columns sent to AI');
+eq($byName['website']->typeName, 'url', 'HIGH match not overridden by AI');
+eq($byName['mystery']->typeName, 'textarea', 'LOW field replaced by AI proposal');
+eq($byName['mystery']->source, 'ai', 'AI source tagged');
+eq($byName['mystery']->confidence, FieldMapping::MEDIUM, 'AI proposal is MEDIUM confidence');
 
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);
