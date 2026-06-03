@@ -307,8 +307,10 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
         $out .= $fragment->parse('core/page/section.php');
     }
 
+    $out .= '<div style="margin: 15px 0 40px;">';
     $out .= '<button class="btn btn-primary btn-lg" type="submit">' . rex_i18n::msg('yconverter_yform_apply') . '</button>';
     $out .= ' <a class="btn btn-default btn-lg" href="' . rex_url::currentBackendPage() . '">' . rex_i18n::msg('yconverter_yform_cancel') . '</a>';
+    $out .= '</div>';
     $out .= '</form>';
 
     return $out;
