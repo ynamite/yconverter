@@ -81,6 +81,25 @@ yconverter_yform_col_reason = Begründung
 yconverter_yform_remove_column = — Spalte entfernen —
 yconverter_yform_cancel = Abbrechen
 
+yconverter_url_step_heading = seo42 → URL-Profile
+yconverter_url_step_text = Erkennt seo42-URL-Generierungsprofile (url_control) und legt daraus Profile für das URL-Addon an. Namespace, Artikel-ID und Tabelle bitte in der Vorschau prüfen.
+yconverter_url_analyze = Analysieren
+yconverter_url_apply = Profile anlegen
+yconverter_url_no_profiles = Es wurden keine seo42-URL-Profile (url_control_generate) gefunden.
+yconverter_url_addon_missing = Das URL-Addon ist nicht installiert/aktiviert. Bitte zuerst installieren.
+yconverter_url_manager_notice = Hinweis: {0} Eintrag/Einträge in url_control_manager (manuelle URL-Methoden) werden nicht automatisch migriert und müssen ggf. manuell nachgebaut werden.
+yconverter_url_profile = URL-Profil
+yconverter_url_col_namespace = Namespace
+yconverter_url_col_article = Artikel-ID
+yconverter_url_col_clang = Sprache (clang_id)
+yconverter_url_col_table = Tabelle
+yconverter_url_col_id = ID-Spalte
+yconverter_url_col_segment = URL-Segment (Teil 1 / Trenner / Teil 2)
+yconverter_url_col_restriction = Einschränkung
+yconverter_url_col_flags = Zu prüfen
+yconverter_url_col_skip = Überspringen
+yconverter_url_skip = Dieses Profil nicht anlegen
+
 yconverter_ai_heading = KI-Unterstützung (optional)
 yconverter_ai_provider = KI-Anbieter
 yconverter_ai_provider_none = Keiner
