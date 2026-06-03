@@ -411,7 +411,12 @@ function renderUrlPreview(array $mappings, $managerRows, rex_csrf_token $csrfTok
                 . ' ' . $sepField . ' '
                 . $textInput('segment_2', isset($tp['column_segment_part_2']) ? $tp['column_segment_part_2'] : '')
                 . '</td></tr>'
-            . '<tr><th>' . rex_i18n::msg('yconverter_url_col_restriction') . '</th><td>' . $restriction . '</td></tr>'
+            . '<tr><th>' . rex_i18n::msg('yconverter_url_col_restriction') . '</th><td>' . $restriction
+                // Restriction is display-only; carry it through the round-trip as hidden fields.
+                . '<input type="hidden" name="urlmap[' . $i . '][restriction_column]" value="' . rex_escape(isset($tp['restriction_1_column']) ? $tp['restriction_1_column'] : '') . '" />'
+                . '<input type="hidden" name="urlmap[' . $i . '][restriction_operator]" value="' . rex_escape(isset($tp['restriction_1_comparison_operator']) ? $tp['restriction_1_comparison_operator'] : '=') . '" />'
+                . '<input type="hidden" name="urlmap[' . $i . '][restriction_value]" value="' . rex_escape(isset($tp['restriction_1_value']) ? $tp['restriction_1_value'] : '') . '" />'
+                . '</td></tr>'
             . '<tr><th>' . rex_i18n::msg('yconverter_url_col_flags') . '</th><td><small>' . rex_escape(implode(' · ', $m->flags)) . '</small></td></tr>'
             . '<tr><th>' . rex_i18n::msg('yconverter_url_col_skip') . '</th><td><label><input type="checkbox" name="urlmap[' . $i . '][remove]" value="1"> ' . rex_i18n::msg('yconverter_url_skip') . '</label></td></tr>';
 
@@ -441,6 +446,11 @@ function buildUrlMappingsFromPost(array $posted)
         if (isset($row['segment_2']) && '' !== $row['segment_2']) {
             $tableParameters['column_segment_part_2'] = (string) $row['segment_2'];
             $tableParameters['column_segment_part_2_separator'] = isset($row['segment_2_separator']) ? (string) $row['segment_2_separator'] : '-';
+        }
+        if (isset($row['restriction_column']) && '' !== $row['restriction_column']) {
+            $tableParameters['restriction_1_column'] = (string) $row['restriction_column'];
+            $tableParameters['restriction_1_comparison_operator'] = isset($row['restriction_operator']) && '' !== $row['restriction_operator'] ? (string) $row['restriction_operator'] : '=';
+            $tableParameters['restriction_1_value'] = isset($row['restriction_value']) ? (string) $row['restriction_value'] : '';
         }
         $mappings[] = new UrlProfileMapping([
             'namespace' => isset($row['namespace']) ? (string) $row['namespace'] : '',

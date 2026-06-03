@@ -37,7 +37,11 @@ class UrlProfileImporter
 
     public function isAvailable()
     {
-        return \rex_addon::get('url')->isAvailable() && class_exists('Url\\Profile') && class_exists('Url\\Database');
+        return \rex_addon::get('url')->isAvailable()
+            && class_exists('Url\\Profile')
+            && class_exists('Url\\Database')
+            && class_exists('Url\\Cache')
+            && class_exists('Url\\UrlManagerSql');
     }
 
     /**
@@ -108,29 +112,27 @@ class UrlProfileImporter
         }
 
         $profileTable = \rex::getTable('url_generator_profile');
-        $written = 0;
 
+        // Clean slate for our own migrated profiles before re-inserting the confirmed set, so
+        // re-running is idempotent even when the operator edited namespace/article/table/clang
+        // (the unique key is namespace+article_id+clang_id). Operator-made profiles (other
+        // createuser) are never touched.
+        $purge = \rex_sql::factory();
+        $purge->setQuery('DELETE FROM ' . $purge->escapeIdentifier($profileTable) . ' WHERE createuser = :u', ['u' => 'yconverter']);
+
+        $written = 0;
+        $now = date('Y-m-d H:i:s');
         foreach ($mappings as $mapping) {
             if ($mapping->remove || '' === $mapping->tableName) {
                 continue;
             }
-            $tableNameValue = \Url\Database::merge($mapping->dbId, $mapping->tableName);
-
-            // Replace only our own previously-migrated profiles; never touch operator-made ones.
-            $delete = \rex_sql::factory();
-            $delete->setQuery(
-                'DELETE FROM ' . $delete->escapeIdentifier($profileTable) . ' WHERE createuser = :u AND table_name = :t AND clang_id = :c',
-                ['u' => 'yconverter', 't' => $tableNameValue, 'c' => $mapping->clangId]
-            );
-
-            $now = date('Y-m-d H:i:s');
             $insert = \rex_sql::factory();
             $insert->setTable($profileTable);
             $insert->setValue('namespace', $mapping->namespace);
             $insert->setValue('article_id', $mapping->articleId);
             $insert->setValue('clang_id', $mapping->clangId);
             $insert->setValue('ep_pre_save_called', 0);
-            $insert->setValue('table_name', $tableNameValue);
+            $insert->setValue('table_name', \Url\Database::merge($mapping->dbId, $mapping->tableName));
             $insert->setValue('table_parameters', (string) json_encode($mapping->tableParameters));
             foreach (['relation_1_table_name', 'relation_2_table_name', 'relation_3_table_name'] as $col) {
                 $insert->setValue($col, '');
@@ -142,8 +144,13 @@ class UrlProfileImporter
             $insert->setValue('updatedate', '' !== $mapping->updatedate ? $mapping->updatedate : $now);
             $insert->setValue('createuser', 'yconverter');
             $insert->setValue('updateuser', 'yconverter');
-            $insert->insert();
-            ++$written;
+            try {
+                $insert->insert();
+                ++$written;
+            } catch (\rex_sql_exception $e) {
+                // Most likely a duplicate namespace+article+clang within the confirmed set.
+                $this->message->addWarning(sprintf('Profil für <code>%s</code> (Namespace "%s", clang %d) konnte nicht angelegt werden: %s', rex_escape($mapping->tableName), rex_escape($mapping->namespace), $mapping->clangId, rex_escape($e->getMessage())));
+            }
         }
 
         // Rebuild profile cache + regenerate URLs (the recipe used by the url addon's own page).
@@ -153,7 +160,7 @@ class UrlProfileImporter
             $profile->buildUrls();
         }
 
-        $urlCount = \rex_sql::factory()->getArray('SELECT COUNT(*) AS c FROM ' . $this->sql->escapeIdentifier(\rex::getTable('url_generator_url')));
+        $urlCount = $this->sql->getArray('SELECT COUNT(*) AS c FROM ' . $this->sql->escapeIdentifier(\rex::getTable('url_generator_url')));
         $urls = isset($urlCount[0]['c']) ? (int) $urlCount[0]['c'] : 0;
 
         $this->message->addSuccess(sprintf('%d URL-Profil(e) angelegt; %d URL(s) generiert.', $written, $urls));
