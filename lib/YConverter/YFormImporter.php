@@ -29,6 +29,9 @@ use YConverter\Schema\Ai\AiProviderFactory;
  */
 class YFormImporter
 {
+    /** Sentinel typeName used in the preview to mark a column for removal. */
+    const REMOVE = '__remove__';
+
     private $config;
     private $message;
     private $sql;
@@ -112,33 +115,84 @@ class YFormImporter
         $clangIds = array_map('intval', array_keys(\rex_clang::getAll()));
         $langAvailable = LangDataMerger::langFieldsAvailable();
 
-        $existingFields = [];
-        if ('' !== $yfTableName) {
-            $existingFields = $this->existingFieldTypes($yfTableName);
+        // For re-detection: load the existing field definitions so manual work (type, label,
+        // params, attributes) is preserved instead of being overwritten by fresh detection.
+        $existingMappings = '' !== $yfTableName ? $this->existingFieldMappings($yfTableName) : [];
+        $existingTypes = [];
+        foreach ($existingMappings as $name => $mapping) {
+            $existingTypes[$name] = $mapping->typeName;
         }
 
         $detector = new SchemaDetector(AiProviderFactory::fromConfig($this->config), $this->config->getAiSendSamples());
+        $detected = $detector->detect($columns, $sampler, $clangIds, $langAvailable, $existingTypes);
 
-        return $detector->detect($columns, $sampler, $clangIds, $langAvailable, $existingFields);
+        if (!$existingMappings) {
+            return $detected;
+        }
+
+        // i18n collapses supersede the old per-language fields; for everything else prefer the
+        // already-saved definition so the operator's prior edits are not lost.
+        $result = [];
+        foreach ($detected as $mapping) {
+            if (empty($mapping->members['map']) && isset($existingMappings[$mapping->name])) {
+                $result[] = $existingMappings[$mapping->name];
+            } else {
+                $result[] = $mapping;
+            }
+        }
+
+        return $result;
     }
 
     /**
-     * @return array<string,string> column/field name => type_name for currently-registered value fields
+     * Existing value-field definitions of a YForm table as FieldMappings, keyed by field name.
+     * The `attributes` JSON is expanded into individual params so the preview shows it as
+     * editable `key=value` lines; registerYFormFields folds them back into JSON on save.
+     *
+     * @return array<string,FieldMapping>
      */
-    private function existingFieldTypes($yfTableName)
+    private function existingFieldMappings($yfTableName)
     {
         $yfField = \rex::getTable('yform_field');
         if (!$this->tableExists($yfField)) {
             return [];
         }
         $rows = $this->sql->getArray(
-            'SELECT name, type_name FROM ' . $this->sql->escapeIdentifier($yfField) . ' WHERE table_name = :t AND type_id = :v',
+            'SELECT * FROM ' . $this->sql->escapeIdentifier($yfField) . ' WHERE table_name = :t AND type_id = :v ORDER BY prio',
             ['t' => $yfTableName, 'v' => 'value']
         );
+
+        $fixed = ['id', 'table_name', 'prio', 'type_id', 'type_name', 'db_type', 'list_hidden', 'search', 'name', 'label', 'not_required', 'createdate', 'updatedate', 'createuser', 'updateuser'];
+
         $out = [];
         foreach ($rows as $row) {
-            $out[$row['name']] = $row['type_name'];
+            $params = [];
+            foreach ($row as $col => $val) {
+                if (in_array($col, $fixed, true) || null === $val || '' === $val) {
+                    continue;
+                }
+                if ('attributes' === $col) {
+                    $decoded = json_decode((string) $val, true);
+                    if (is_array($decoded)) {
+                        foreach ($decoded as $attrKey => $attrVal) {
+                            $params[$attrKey] = $attrVal;
+                        }
+                        continue;
+                    }
+                }
+                $params[$col] = $val;
+            }
+
+            $out[$row['name']] = new FieldMapping($row['name'], $row['type_name'], [
+                'label' => (string) $row['label'],
+                'dbType' => (string) $row['db_type'],
+                'params' => $params,
+                'confidence' => FieldMapping::HIGH,
+                'source' => 'existing',
+                'reason' => 'Bestehende YForm-Felddefinition übernommen',
+            ]);
         }
+
         return $out;
     }
 
@@ -163,8 +217,9 @@ class YFormImporter
         $this->sql->setQuery('INSERT INTO ' . $this->sql->escapeIdentifier($target) . ' SELECT * FROM ' . $this->sql->escapeIdentifier($staging));
         \rex_sql_table::get($target)->ensurePrimaryIdColumn()->alter();
 
-        $this->applyMappings($target, $mappings);
+        // Register the table first so the schema sync in applyMappings() can resolve it.
         $this->registerYFormTable($target, $base);
+        $this->applyMappings($target, $mappings);
 
         $rows = $this->sql->getArray('SELECT COUNT(*) AS cnt FROM ' . $this->sql->escapeIdentifier($target));
         $count = isset($rows[0]['cnt']) ? $rows[0]['cnt'] : 0;
@@ -199,22 +254,123 @@ class YFormImporter
     }
 
     /**
-     * Run the i18n data transforms, then (re)write the yform_field rows from the mappings.
+     * Apply the confirmed mappings to $tableName: drop removed columns, run per-field data
+     * transforms (i18n collapse, unix→datetime), (re)write the field definitions, then let
+     * YForm sync the data-table schema to those definitions.
      *
      * @param FieldMapping[] $mappings
      */
     private function applyMappings($tableName, array $mappings)
     {
-        $merger = new LangDataMerger();
+        // 1. Removals: drop the column(s) and exclude them from field registration.
+        $kept = [];
         foreach ($mappings as $mapping) {
+            if (self::REMOVE === $mapping->typeName) {
+                $this->dropColumns($tableName, $this->mappingColumns($mapping));
+                continue;
+            }
+            $kept[] = $mapping;
+        }
+
+        // 2. Per-field data transforms that must precede field/schema registration.
+        $merger = new LangDataMerger();
+        foreach ($kept as $mapping) {
             if (!empty($mapping->members['map'])) {
                 foreach ($merger->merge($tableName, $mapping) as $note) {
                     $this->message->addWarning($note);
                 }
             }
+            if ('unixToDatetime' === $mapping->transform) {
+                $this->convertUnixToDatetime($tableName, $mapping->name);
+            }
         }
 
-        $this->registerYFormFields($tableName, $mappings);
+        // 3. Write field definitions, then sync the data-table schema to them.
+        $this->registerYFormFields($tableName, $kept);
+        $this->syncTableSchema($tableName);
+    }
+
+    /**
+     * The data-table column(s) a mapping owns: the i18n member columns, or the single column.
+     *
+     * @return string[]
+     */
+    private function mappingColumns(FieldMapping $mapping)
+    {
+        if (!empty($mapping->members['columns'])) {
+            return $mapping->members['columns'];
+        }
+        return [$mapping->name];
+    }
+
+    /**
+     * @param string[] $columns
+     */
+    private function dropColumns($tableName, array $columns)
+    {
+        $existing = array_column(\rex_sql::showColumns($tableName), 'name');
+        $table = \rex_sql_table::get($tableName);
+        $dropped = [];
+        foreach ($columns as $column) {
+            if ('id' === $column || !in_array($column, $existing, true)) {
+                continue;
+            }
+            $table->removeColumn($column);
+            $dropped[] = $column;
+        }
+        if ($dropped) {
+            $table->alter();
+            $this->message->addWarning(sprintf('Spalte(n) aus <code>%s</code> entfernt: <code>%s</code>', rex_escape($tableName), rex_escape(implode(', ', $dropped))));
+        }
+    }
+
+    /**
+     * Convert an integer unix-timestamp column into a real `datetime` column (FROM_UNIXTIME),
+     * preserving the values. Idempotent: skips columns already of a date/time type. Safe-ordered:
+     * populates a new column before dropping the old one.
+     */
+    private function convertUnixToDatetime($tableName, $column)
+    {
+        $type = '';
+        foreach (\rex_sql::showColumns($tableName) as $c) {
+            if ($c['name'] === $column) {
+                $type = strtolower($c['type']);
+                break;
+            }
+        }
+        if ('' === $type || 0 === strpos($type, 'datetime') || 0 === strpos($type, 'timestamp') || 0 === strpos($type, 'date')) {
+            return; // column gone or already date-like
+        }
+
+        $sql = \rex_sql::factory();
+        $sql->setDebug(false);
+        $tableEscaped = $sql->escapeIdentifier($tableName);
+        $columnEscaped = $sql->escapeIdentifier($column);
+        $tmp = $column . '__dt';
+
+        \rex_sql_table::get($tableName)->ensureColumn(new \rex_sql_column($tmp, 'datetime', true))->alter();
+        $sql->setQuery(
+            'UPDATE ' . $tableEscaped . ' SET ' . $sql->escapeIdentifier($tmp)
+            . ' = IF(' . $columnEscaped . ' IS NULL OR ' . $columnEscaped . ' = 0, NULL, FROM_UNIXTIME(' . $columnEscaped . '))'
+        );
+        \rex_sql_table::get($tableName)->removeColumn($column)->alter();
+        \rex_sql_table::get($tableName)->renameColumn($tmp, $column)->alter();
+    }
+
+    /**
+     * Use YForm's own API to sync the data table's columns to the registered field definitions
+     * (adds missing columns, keeps existing data). No-op if YForm is not available.
+     */
+    private function syncTableSchema($tableName)
+    {
+        if (!class_exists('rex_yform_manager_table') || !class_exists('rex_yform_manager_table_api')) {
+            return;
+        }
+        \rex_yform_manager_table::deleteCache();
+        $table = \rex_yform_manager_table::get($tableName);
+        if ($table) {
+            \rex_yform_manager_table_api::generateTableAndFields($table);
+        }
     }
 
     /**
@@ -225,6 +381,14 @@ class YFormImporter
         $yfField = \rex::getTable('yform_field');
         if (!$this->tableExists($yfField)) {
             return;
+        }
+
+        // Ensure an `attributes` column exists so HTML attributes (class, data-*, …) can be
+        // stored as the JSON value YForm expects.
+        $fieldColumns = array_column(\rex_sql::showColumns($yfField), 'name');
+        if (!in_array('attributes', $fieldColumns, true)) {
+            \rex_sql_table::get($yfField)->ensureColumn(new \rex_sql_column('attributes', 'text'))->alter();
+            $fieldColumns[] = 'attributes';
         }
 
         $delete = \rex_sql::factory();
@@ -248,14 +412,19 @@ class YFormImporter
                 'createuser' => 'yconverter',
                 'updateuser' => 'yconverter',
             ];
-            // Merge type-specific params (e.g. choices, multiple), but never let a rule or
-            // AI proposal overwrite the fixed columns above.
-            foreach ($mapping->params as $paramName => $paramValue) {
-                if (array_key_exists($paramName, $values)) {
-                    continue;
+
+            // Params that match a real rex_yform_field column are written directly; everything
+            // else (class, data-profile, …) is folded into the `attributes` JSON object.
+            $split = FieldMapping::splitParamsForColumns($mapping->params, $fieldColumns);
+            foreach ($split['columns'] as $paramName => $paramValue) {
+                if (!array_key_exists($paramName, $values)) {
+                    $values[$paramName] = $paramValue;
                 }
-                $values[$paramName] = $paramValue;
             }
+            if (!empty($split['attributes'])) {
+                $values['attributes'] = (string) json_encode($split['attributes'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+
             $this->insertRow($yfField, $values);
         }
     }
