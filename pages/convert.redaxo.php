@@ -98,8 +98,11 @@ if ($func && !$csrfToken->isValid()) {
                 'mappings' => $importer->analyze($tableName, $tableName),
             ];
         }
+        // Mapping mode: show only the preview (and a way back); hide the clone/migrate/media
+        // wizard so the operator focuses on confirming the field mappings.
         echo $importer->getMessage()->getAll();
         echo renderYformPreview($previews, $csrfToken);
+        return;
     } elseif ('yform_import' === $func) {
         $importer = new YFormImporter($config, new Message());
         $posted = rex_request('mapping', 'array', []); // [tableKey][fieldIndex] => [name,type,label,params...]
@@ -305,6 +308,7 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
     }
 
     $out .= '<button class="btn btn-primary btn-lg" type="submit">' . rex_i18n::msg('yconverter_yform_apply') . '</button>';
+    $out .= ' <a class="btn btn-default btn-lg" href="' . rex_url::currentBackendPage() . '">' . rex_i18n::msg('yconverter_yform_cancel') . '</a>';
     $out .= '</form>';
 
     return $out;

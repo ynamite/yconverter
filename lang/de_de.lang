@@ -75,6 +75,7 @@ yconverter_yform_col_params = Parameter (name=wert je Zeile; unbekannte Schlüss
 yconverter_yform_col_confidence = Konfidenz
 yconverter_yform_col_reason = Begründung
 yconverter_yform_remove_column = — Spalte entfernen —
+yconverter_yform_cancel = Abbrechen
 
 yconverter_ai_heading = KI-Unterstützung (optional)
 yconverter_ai_provider = KI-Anbieter
