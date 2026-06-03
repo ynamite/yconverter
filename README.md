@@ -108,7 +108,7 @@ eine regelbasierte Erkennung passende YForm-Feldtypen vor.
 | --- | --- |
 | `status`/`online`/`active` (tinyint, Werte 0/1) | `choice` mit `offline=0,online=1` |
 | `createdate`/`updatedate`/`*_at`/`timestamp` (Integer-Zeitstempel) | `datestamp` – Werte werden per `FROM_UNIXTIME` nach `datetime` konvertiert |
-| `url`/`website`/`homepage`/`link` | `url` |
+| `url`/`website`/`homepage`/`link` | `text` mit Attribut `type="url"` |
 | `author`/`editor`/`redakteur`/`bearbeiter`/`owner` | `be_user` |
 | `*file*`/`image`/`foto`/`pdf` | `be_media` (`multiple` bei Plural-Namen oder Text-Spalten) |
 | `year`/`jahr` | `number` |

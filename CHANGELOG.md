@@ -21,6 +21,12 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 - Ein bereits gesetzter oder unbekannter Feldtyp bleibt in der Auswahl erhalten, damit bei
   der erneuten Erkennung keine Zuordnung verloren geht.
 
+### Behoben
+
+- Externe URLs werden nicht mehr auf einen (in YForm nicht existierenden) `url`-Feldtyp
+  abgebildet, sondern auf ein `text`-Feld mit dem Attribut `type="url"`. Der `url`-Typ wurde
+  aus dem Katalog entfernt.
+
 ## [2.0.0-alpha1] – 2026-06-03
 
 Erste öffentliche **Alpha** der REDAXO-5-Neufassung. Schwerpunkt ist die **intelligente

@@ -78,9 +78,10 @@ eq($r[0]->confidence, FieldMapping::HIGH, 'status HIGH');
 $r = $detect->detect([['name' => 'active', 'type' => 'tinyint(1)']], sampler(['active' => ['1', '2', '3']]), [1], false);
 eq($r[0]->typeName, 'checkbox', 'tinyint(1) non-binary -> checkbox fallback');
 
-// url
+// url -> text with type="url" attribute (YForm has no real "url" field type)
 $r = $detect->detect([['name' => 'website', 'type' => 'varchar(255)']], sampler([]), [1], false);
-eq($r[0]->typeName, 'url', 'website -> url');
+eq($r[0]->typeName, 'text', 'website -> text');
+eq($r[0]->params['type'], 'url', 'website gets type=url attribute');
 eq($r[0]->confidence, FieldMapping::HIGH, 'url HIGH');
 
 // file -> be_media; plural -> multiple
@@ -235,7 +236,7 @@ $byName = [];
 foreach ($r as $m) { $byName[$m->name] = $m; }
 
 eq($fake->seen, ['mystery'], 'only LOW-confidence columns sent to AI');
-eq($byName['website']->typeName, 'url', 'HIGH match not overridden by AI');
+eq($byName['website']->typeName, 'text', 'HIGH match not overridden by AI');
 eq($byName['mystery']->typeName, 'textarea', 'LOW field replaced by AI proposal');
 eq($byName['mystery']->source, 'ai', 'AI source tagged');
 eq($byName['mystery']->confidence, FieldMapping::MEDIUM, 'AI proposal is MEDIUM confidence');

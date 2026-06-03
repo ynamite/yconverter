@@ -179,12 +179,15 @@ class SchemaDetector
                 'reason' => 'Spaltenname status-artig + Werte 0/1',
             ],
             [
+                // YForm has no dedicated "url" value field; an external URL is a text field
+                // with an HTML type="url" attribute (set via the attributes JSON).
                 'id' => 'url',
                 'name' => '/(^|_)(url|website|webseite|homepage|link|href)s?$/i',
                 'dbType' => '/^(varchar|char|text|tinytext)/',
-                'field' => 'url',
+                'field' => 'text',
+                'params' => ['type' => 'url'],
                 'confidence' => FieldMapping::HIGH,
-                'reason' => 'Spaltenname deutet auf eine URL hin',
+                'reason' => 'Externe URL → Text-Feld mit Attribut type="url"',
             ],
             [
                 'id' => 'media',
@@ -508,7 +511,7 @@ class SchemaDetector
     public static function allowedTypes(): array
     {
         return [
-            'text', 'textarea', 'choice', 'be_media', 'be_user', 'url', 'email',
+            'text', 'textarea', 'choice', 'be_media', 'be_user', 'email',
             'datetime', 'date', 'time', 'datestamp', 'integer', 'number', 'checkbox',
             'lang_text', 'lang_textarea', 'lang_media',
             'custom_link', 'custom_link_multi',
