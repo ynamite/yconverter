@@ -94,11 +94,14 @@ class SchemaDetector
                 $params = call_user_func($rule['paramsFn'], $name, $type, $sample);
             }
             return new FieldMapping($name, $rule['field'], [
-                'dbType' => $type,
+                // outDbType lets a rule declare the resulting column type (e.g. a unix int
+                // becomes datetime); otherwise the original MySQL type is preserved.
+                'dbType' => isset($rule['outDbType']) ? $rule['outDbType'] : $type,
                 'params' => $params,
                 'confidence' => $rule['confidence'],
                 'reason' => $rule['reason'],
                 'source' => 'rule:' . $rule['id'],
+                'transform' => isset($rule['transform']) ? $rule['transform'] : '',
             ]);
         }
 
@@ -153,6 +156,18 @@ class SchemaDetector
         };
 
         return [
+            [
+                // R4 stores create/update timestamps as unix-int; map to a datetime-backed
+                // datestamp field and flag the FROM_UNIXTIME conversion run at apply time.
+                'id' => 'unix-datestamp',
+                'name' => '/^(creat(e|ed)|updat(e|ed)|chang(e|ed)|modif(y|ied)|publish(ed)?)_?(date|datum|at|time|stamp)$|^(pub)?date$|^timestamp$/i',
+                'dbType' => '/^(int|bigint|mediumint)/',
+                'field' => 'datestamp',
+                'outDbType' => 'datetime',
+                'transform' => 'unixToDatetime',
+                'confidence' => FieldMapping::HIGH,
+                'reason' => 'Unix-Timestamp (Integer) → datestamp, Werte via FROM_UNIXTIME konvertiert',
+            ],
             [
                 'id' => 'status-choice',
                 'name' => '/^(status|online|active|published|aktiv|sichtbar)$/i',

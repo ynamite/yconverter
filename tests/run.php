@@ -252,5 +252,37 @@ $detectSamples = new SchemaDetector($fakeSamples, true);
 $detectSamples->detect([['name' => 'mystery', 'type' => 'varchar(255)']], sampler(['mystery' => ['a', 'b']]), [1], false);
 eq($fakeSamples->sawSamples, [['a', 'b']], 'aiSendSamples=true forwards sampled values');
 
+echo "\nSchemaDetector — unix timestamp -> datestamp\n";
+$detect = new SchemaDetector();
+foreach (['createdate', 'updatedate', 'created_at', 'pubdate', 'timestamp'] as $col) {
+    $r = $detect->detect([['name' => $col, 'type' => 'int(11)']], sampler([]), [1], false);
+    eq($r[0]->typeName, 'datestamp', "$col (int) -> datestamp");
+    eq($r[0]->dbType, 'datetime', "$col output db_type datetime");
+    eq($r[0]->transform, 'unixToDatetime', "$col flagged for FROM_UNIXTIME");
+}
+// year must NOT be treated as a timestamp.
+$r = $detect->detect([['name' => 'year', 'type' => 'int(11)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'number', 'year stays number, not datestamp');
+// a non-integer createdate is not converted.
+$r = $detect->detect([['name' => 'createdate', 'type' => 'varchar(20)']], sampler([]), [1], false);
+eq($r[0]->transform, '', 'varchar createdate not flagged for conversion');
+
+echo "\nFieldMapping::splitParamsForColumns\n";
+$split = FieldMapping::splitParamsForColumns(
+    ['choices' => 'a=1', 'multiple' => 1, 'class' => 'tiny-editor', 'data-profile' => 'massif'],
+    ['choices', 'multiple', 'attributes']
+);
+eq($split['columns'], ['choices' => 'a=1', 'multiple' => 1], 'real columns kept direct');
+eq($split['attributes'], ['class' => 'tiny-editor', 'data-profile' => 'massif'], 'non-columns folded to attributes');
+
+$split = FieldMapping::splitParamsForColumns(
+    ['attributes' => '{"class":"x"}', 'data-profile' => 'massif'],
+    ['attributes']
+);
+eq($split['attributes'], ['class' => 'x', 'data-profile' => 'massif'], 'explicit attributes JSON merged with folded keys');
+
+$split = FieldMapping::splitParamsForColumns(['multiple' => 1], ['choices', 'multiple', 'attributes']);
+eq($split['attributes'], [], 'no attributes when all params are columns');
+
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);
