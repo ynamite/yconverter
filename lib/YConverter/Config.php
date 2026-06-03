@@ -18,8 +18,62 @@ class Config
 
     public function __construct()
     {
-        $configFile = \rex_addon::get('yconverter')->getDataPath('config.yml');
-        $this->config = \rex_file::getConfig($configFile);
+        $this->config = self::read();
+    }
+
+    /**
+     * Absolute path to the addon's config.yml (under data/, gitignored).
+     */
+    public static function file()
+    {
+        return \rex_addon::get('yconverter')->getDataPath('config.yml');
+    }
+
+    /**
+     * Default settings, the single source of truth for every config key.
+     *
+     * @return array
+     */
+    public static function defaults()
+    {
+        return [
+            'db' => [
+                '2' => [
+                    'host' => null,
+                    'login' => null,
+                    'password' => null,
+                    'name' => null,
+                    'persistent' => null,
+                ],
+            ],
+            'core_version' => null,
+            'table_prefix' => 'rex_',
+            'media_source_path' => null,
+            'media_source_url' => null,
+            'ai_provider' => 'none',
+            'ai_api_key' => null,
+            'ai_model' => null,
+            'ai_send_samples' => true,
+        ];
+    }
+
+    /**
+     * The full, defaulted config as stored on disk.
+     *
+     * @return array
+     */
+    public static function read()
+    {
+        return array_merge(self::defaults(), (array) \rex_file::getConfig(self::file()));
+    }
+
+    /**
+     * Persist the full config array. Settings pages read(), overlay only their own fields,
+     * and write() — so saving one sub-page never clears another's settings.
+     */
+    public static function write(array $config)
+    {
+        return \rex_file::putConfig(self::file(), $config);
     }
 
     public function isValid()

@@ -12,7 +12,11 @@ page:
             title: 'translate:subpage_convert'
             subpages:
                 redaxo: { title: 'translate:subpage_redaxo' }
-        settings: { title: 'translate:subpage_settings' }
+        settings:
+            title: 'translate:subpage_settings'
+            subpages:
+                general: { title: 'translate:subpage_settings_general' }
+                ai: { title: 'translate:subpage_settings_ai' }
 
 requires:
     redaxo: ^5.6.5
