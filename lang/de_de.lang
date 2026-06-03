@@ -71,9 +71,10 @@ yconverter_yform_refresh_warning = Achtung: Die bestehenden Felddefinitionen die
 yconverter_yform_col_columns = Spalte(n)
 yconverter_yform_col_type = YForm-Feldtyp
 yconverter_yform_col_label = Label
-yconverter_yform_col_params = Parameter (name=wert je Zeile)
+yconverter_yform_col_params = Parameter (name=wert je Zeile; unbekannte Schlüssel wie class oder data-* werden als HTML-Attribute gespeichert)
 yconverter_yform_col_confidence = Konfidenz
 yconverter_yform_col_reason = Begründung
+yconverter_yform_remove_column = — Spalte entfernen —
 
 yconverter_ai_heading = KI-Unterstützung (optional)
 yconverter_ai_provider = KI-Anbieter

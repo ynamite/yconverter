@@ -263,6 +263,7 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
             foreach ($allowed as $type) {
                 $select .= '<option value="' . $type . '"' . ($type === $m->typeName ? ' selected' : '') . '>' . $type . '</option>';
             }
+            $select .= '<option value="__remove__"' . ('__remove__' === $m->typeName ? ' selected' : '') . '>' . rex_i18n::msg('yconverter_yform_remove_column') . '</option>';
             $select .= '</select>';
 
             $paramsString = '';
