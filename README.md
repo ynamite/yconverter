@@ -4,8 +4,10 @@ Migriert eine bestehende **REDAXO 4** Installation (Schema **und** Daten) in ein
 **REDAXO 5** Installation. Der gesamte Vorgang läuft innerhalb von REDAXO 5 – in der alten
 REDAXO-4-Installation muss **nichts** installiert werden.
 
-> **Hinweis:** Dieses AddOn befindet sich in aktiver Entwicklung. Die voll funktionsfähige
-> Variante für REDAXO 4 (Export aus REDAXO 4 heraus) liegt im Branch
+> **Hinweis:** Dieses AddOn befindet sich in aktiver Entwicklung und wird aktuell als
+> **Alpha** (`2.0.0-alpha1`) bereitgestellt – bitte nur in einer Test-/Wegwerf-Umgebung und
+> mit vorherigem Backup einsetzen. Die voll funktionsfähige Variante für REDAXO 4 (Export aus
+> REDAXO 4 heraus) liegt im Branch
 > [redaxo4](https://github.com/yakamara/yconverter/tree/redaxo4).
 
 ## Funktionsumfang

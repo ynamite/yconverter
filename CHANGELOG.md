@@ -5,10 +5,12 @@ Alle nennenswerten Änderungen an diesem AddOn werden hier dokumentiert.
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
-## [Unveröffentlicht] – 2.0.0-dev
+## [2.0.0-alpha1] – 2026-06-03
 
-Schwerpunkt dieser Entwicklungsversion ist die **intelligente Schema-Erkennung** beim Import
-eigener Tabellen nach YForm sowie die Neustrukturierung der Einstellungen.
+Erste öffentliche **Alpha** der REDAXO-5-Neufassung. Schwerpunkt ist die **intelligente
+Schema-Erkennung** beim Import eigener Tabellen nach YForm sowie die Neustrukturierung der
+Einstellungen. Als Alpha-Version: nur in einer Test-/Wegwerf-Umgebung einsetzen, vorher
+Backups anlegen.
 
 ### Hinzugefügt
 
