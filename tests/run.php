@@ -299,5 +299,20 @@ foreach (['be_user', 'custom_link', 'custom_link_multi'] as $t) {
     ok(in_array($t, $types, true), "allowedTypes contains $t");
 }
 
+require __DIR__ . '/../lib/YConverter/Url/UrlProfileMapping.php';
+
+use YConverter\Url\UrlProfileMapping;
+
+echo "\nUrlProfileMapping\n";
+$m = new UrlProfileMapping(['sourceTable' => 'rex_x', 'articleId' => 7, 'clangId' => 2, 'flags' => ['a']]);
+eq($m->sourceTable, 'rex_x', 'sourceTable set');
+eq($m->articleId, 7, 'articleId set');
+eq($m->clangId, 2, 'clangId set');
+eq($m->dbId, 1, 'dbId defaults to 1');
+eq($m->tableName, '', 'tableName defaults empty');
+eq($m->tableParameters, [], 'tableParameters defaults empty');
+eq($m->remove, false, 'remove defaults false');
+eq($m->flags, ['a'], 'flags set');
+
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);
