@@ -109,12 +109,16 @@ eine regelbasierte Erkennung passende YForm-Feldtypen vor.
 | `status`/`online`/`active` (tinyint, Werte 0/1) | `choice` mit `offline=0,online=1` |
 | `createdate`/`updatedate`/`*_at`/`timestamp` (Integer-Zeitstempel) | `datestamp` – Werte werden per `FROM_UNIXTIME` nach `datetime` konvertiert |
 | `url`/`website`/`homepage`/`link` | `url` |
+| `author`/`editor`/`redakteur`/`bearbeiter`/`owner` | `be_user` |
 | `*file*`/`image`/`foto`/`pdf` | `be_media` (`multiple` bei Plural-Namen oder Text-Spalten) |
 | `year`/`jahr` | `number` |
 | `price`/`betrag`/… (decimal) | `number` |
 | `description`/`text`/`body`/… | `textarea` |
 | `prefix_0` … `prefix_n` (eine Spalte je Sprache) | `lang_text` / `lang_textarea` / `lang_media` |
 | sonst | abgeleitet aus dem Spaltentyp |
+
+In der Vorschau stehen zusätzlich u. a. `custom_link` und `custom_link_multi` (AddOn `mform`)
+zur Auswahl; bei aktiver KI-Unterstützung können diese auch vorgeschlagen werden.
 
 ### Mehrsprachige Felder
 

@@ -247,7 +247,7 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
         return rex_view::info(rex_i18n::msg('yconverter_yform_no_custom_tables'));
     }
 
-    $allowed = ['text', 'textarea', 'choice', 'be_media', 'url', 'email', 'datetime', 'date', 'time', 'integer', 'number', 'checkbox', 'lang_text', 'lang_textarea', 'lang_media'];
+    $allowed = YConverter\Schema\SchemaDetector::allowedTypes();
 
     $out = '<form action="' . rex_url::currentBackendPage() . '" method="post">'
         . '<input type="hidden" name="func" value="yform_import" />'
@@ -262,9 +262,14 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
         $out .= '<input type="hidden" name="yform_mode[' . rex_escape($key) . ']" value="' . rex_escape($preview['mode']) . '" />';
         $rows = '';
         foreach ($preview['mappings'] as $i => $m) {
+            // Keep an existing/unknown field type selectable so re-detection never silently loses it.
+            $types = $allowed;
+            if ('' !== $m->typeName && !in_array($m->typeName, $types, true)) {
+                array_unshift($types, $m->typeName);
+            }
             $select = '<select class="form-control" name="mapping[' . rex_escape($key) . '][' . $i . '][type]">';
-            foreach ($allowed as $type) {
-                $select .= '<option value="' . $type . '"' . ($type === $m->typeName ? ' selected' : '') . '>' . $type . '</option>';
+            foreach ($types as $type) {
+                $select .= '<option value="' . rex_escape($type) . '"' . ($type === $m->typeName ? ' selected' : '') . '>' . rex_escape($type) . '</option>';
             }
             $select .= '<option value="__remove__"' . ('__remove__' === $m->typeName ? ' selected' : '') . '>' . rex_i18n::msg('yconverter_yform_remove_column') . '</option>';
             $select .= '</select>';

@@ -5,6 +5,22 @@ Alle nennenswerten Änderungen an diesem AddOn werden hier dokumentiert.
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unveröffentlicht]
+
+### Hinzugefügt
+
+- Unterstützung weiterer YForm-Feldtypen in der Erkennung und der Vorschau-Auswahl:
+  **`be_user`** (YForm-Core) sowie **`custom_link`** und **`custom_link_multi`** (AddOn
+  `mform`). Spalten wie `author`/`editor`/`redakteur` werden heuristisch als `be_user`
+  erkannt; die Link-Felder stehen zur manuellen Auswahl bzw. als KI-Vorschlag bereit.
+
+### Geändert
+
+- Der Feldtyp-Katalog ist zentralisiert (`SchemaDetector::allowedTypes()`) und wird sowohl
+  für die KI als auch für die Vorschau-Auswahl genutzt.
+- Ein bereits gesetzter oder unbekannter Feldtyp bleibt in der Auswahl erhalten, damit bei
+  der erneuten Erkennung keine Zuordnung verloren geht.
+
 ## [2.0.0-alpha1] – 2026-06-03
 
 Erste öffentliche **Alpha** der REDAXO-5-Neufassung. Schwerpunkt ist die **intelligente

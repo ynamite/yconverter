@@ -284,5 +284,19 @@ eq($split['attributes'], ['class' => 'x', 'data-profile' => 'massif'], 'explicit
 $split = FieldMapping::splitParamsForColumns(['multiple' => 1], ['choices', 'multiple', 'attributes']);
 eq($split['attributes'], [], 'no attributes when all params are columns');
 
+echo "\nSchemaDetector — be_user + extended type catalogue\n";
+$detect = new SchemaDetector();
+$r = $detect->detect([['name' => 'author', 'type' => 'varchar(191)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'be_user', 'author -> be_user');
+$r = $detect->detect([['name' => 'editor', 'type' => 'int(11)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'be_user', 'editor (int) -> be_user');
+$r = $detect->detect([['name' => 'username', 'type' => 'varchar(191)']], sampler([]), [1], false);
+ok('be_user' !== $r[0]->typeName, 'username is NOT be_user');
+
+$types = SchemaDetector::allowedTypes();
+foreach (['be_user', 'custom_link', 'custom_link_multi'] as $t) {
+    ok(in_array($t, $types, true), "allowedTypes contains $t");
+}
+
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);

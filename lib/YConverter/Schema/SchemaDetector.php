@@ -208,6 +208,14 @@ class SchemaDetector
                 'reason' => 'Sieht nach E-Mail aus — ggf. E-Mail-Validator ergänzen',
             ],
             [
+                'id' => 'be-user',
+                'name' => '/^(author|autor|editor|redakteur|bearbeiter|owner|user)$/i',
+                'dbType' => '/^(int|bigint|smallint|mediumint|varchar|char)/',
+                'field' => 'be_user',
+                'confidence' => FieldMapping::MEDIUM,
+                'reason' => 'Spaltenname deutet auf einen Backend-Benutzer hin',
+            ],
+            [
                 'id' => 'year-number',
                 'name' => '/(^|_)(year|jahr)$/i',
                 'field' => 'number',
@@ -467,7 +475,7 @@ class SchemaDetector
         }
 
         try {
-            $proposals = $this->ai->proposeFields($columns, $this->allowedTypes(), $clangIds);
+            $proposals = $this->ai->proposeFields($columns, self::allowedTypes(), $clangIds);
         } catch (\Throwable $e) {
             return $mappings; // AI failure must never worsen the result
         }
@@ -490,13 +498,20 @@ class SchemaDetector
         return $mappings;
     }
 
-    /** @return array<int,string> the YForm field types the detector/AI may produce */
-    private function allowedTypes(): array
+    /**
+     * The YForm field types the detector/AI may produce and the preview offers. Single
+     * source of truth (also used by the Step-4 preview dropdown). Some require an addon:
+     * lang_* → yform_lang_fields, custom_link* → mform; be_user is YForm core.
+     *
+     * @return array<int,string>
+     */
+    public static function allowedTypes(): array
     {
         return [
-            'text', 'textarea', 'choice', 'be_media', 'url', 'email',
-            'datetime', 'date', 'time', 'integer', 'number', 'checkbox',
+            'text', 'textarea', 'choice', 'be_media', 'be_user', 'url', 'email',
+            'datetime', 'date', 'time', 'datestamp', 'integer', 'number', 'checkbox',
             'lang_text', 'lang_textarea', 'lang_media',
+            'custom_link', 'custom_link_multi',
         ];
     }
 }
