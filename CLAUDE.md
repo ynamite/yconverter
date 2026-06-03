@@ -77,6 +77,10 @@ Column → YForm-field mapping lives in **`lib/YConverter/Schema/`** and is inte
 
 The pure detection logic is unit-tested with a zero-dependency runner: **`php tests/run.php`** (no Composer/PHPUnit). REDAXO-coupled glue is verified manually.
 
+### seo42 → url migration
+
+`lib/YConverter/Url/` migrates seo42 URL-control profiles into the `url` addon: `ProfileMigrator` (pure: `unserialize` the old `table_parameters`, map columns + `clang` +1, flag review items), `UrlProfileImporter` (resolve old table → `rex_yf_*`, write `rex_url_generator_profile`, rebuild via `Url\Cache`/`Url\UrlManagerSql`/`Url\Profile`), and Step 5 of `convert.redaxo.php`. Addon-conditional (`rex_addon::get('url')`); only `url_control_generate` → `url_generator_profile` is migrated, `url_control_manager` is report-only.
+
 ## Gotchas
 
 - Package classes live in the `YConverter\Package` sub-namespace, distinct from the `YConverter\YConverter` orchestrator class — both resolve fine since `rex_autoload` is classmap-based, not path-based.

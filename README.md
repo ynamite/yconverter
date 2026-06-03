@@ -154,6 +154,18 @@ Tabellenstruktur über YForms eigene Funktion (`generateTableAndFields`) abgegli
 > **Achtung:** Beim Aktualisieren werden die Felddefinitionen der Tabelle ersetzt. Daten und
 > Tabellen-Registrierung bleiben erhalten.
 
+## seo42 URL-Control → URL-Addon
+
+War auf der alten Seite seo42s URL-Generierung aktiv (`rex_url_control_generate`), bietet
+Schritt 5 an, daraus Profile für das [`url`-Addon](https://github.com/FriendsOfREDAXO/url)
+(`rex_url_generator_profile`) zu erzeugen. Ableitbar sind: ein Profil je altem Eintrag,
+`clang` +1 (R4 0-basiert → R5 1-basiert), ID-/Segment-Spalten und einfache Einschränkungen
+sowie die Zieltabelle (alte Tabelle → `rex_yf_<name>`). Namespace und Artikel-ID werden
+vorbelegt, aber zur Prüfung markiert. Nach „Profile anlegen" werden über die Addon-eigenen
+Funktionen die Profile registriert und die URLs neu generiert. `rex_url_control_manager`
+(manuelle URL-Methoden) wird nur als Hinweis gemeldet, nicht automatisch migriert.
+Voraussetzung: das `url`-Addon ist installiert.
+
 ## Alles in einem Schritt (CLI)
 
 Für einen vollständigen, zeitlich nicht limitierten Durchlauf (empfohlen für große Medien-
