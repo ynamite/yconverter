@@ -5,6 +5,16 @@ Alle nennenswerten Änderungen an diesem AddOn werden hier dokumentiert.
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [2.0.0-alpha3] – 2026-06-04
+
+### Behoben
+
+- Die YForm-Zuordnungs-Vorschau (Schritt 4) brach mit „Class
+  `YConverter\YConverter\Schema\SchemaDetector` not found" ab: ein qualifizierter
+  Klassenname kollidierte mit dem `use YConverter\YConverter;`-Alias und wurde doppelt
+  aufgelöst. Der Feldtyp-Katalog wird jetzt korrekt über einen `use`-Import angesprochen.
+  (Regression aus 2.0.0-alpha2.)
+
 ## [2.0.0-alpha2] – 2026-06-03
 
 ### Hinzugefügt
