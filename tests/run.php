@@ -299,5 +299,68 @@ foreach (['be_user', 'custom_link', 'custom_link_multi'] as $t) {
     ok(in_array($t, $types, true), "allowedTypes contains $t");
 }
 
+require __DIR__ . '/../lib/YConverter/Url/UrlProfileMapping.php';
+
+use YConverter\Url\UrlProfileMapping;
+
+echo "\nUrlProfileMapping\n";
+$m = new UrlProfileMapping(['sourceTable' => 'rex_x', 'articleId' => 7, 'clangId' => 2, 'flags' => ['a']]);
+eq($m->sourceTable, 'rex_x', 'sourceTable set');
+eq($m->articleId, 7, 'articleId set');
+eq($m->clangId, 2, 'clangId set');
+eq($m->dbId, 1, 'dbId defaults to 1');
+eq($m->tableName, '', 'tableName defaults empty');
+eq($m->tableParameters, [], 'tableParameters defaults empty');
+eq($m->remove, false, 'remove defaults false');
+eq($m->flags, ['a'], 'flags set');
+
+require __DIR__ . '/../lib/YConverter/Url/ProfileMigrator.php';
+
+use YConverter\Url\ProfileMigrator;
+
+echo "\nProfileMigrator\n";
+
+// Reference case: rex_vegafilm, clang 0, name=title, name_2=year, id=id, no restriction.
+$blob = serialize([
+    'rex_other' => ['rex_other_name' => 'x', 'rex_other_id' => 'x'],
+    'rex_vegafilm' => [
+        'rex_vegafilm_name' => 'title',
+        'rex_vegafilm_name_2' => 'year',
+        'rex_vegafilm_id' => 'id',
+        'rex_vegafilm_restriction_field' => '',
+        'rex_vegafilm_restriction_operator' => '=',
+        'rex_vegafilm_restriction_value' => '',
+    ],
+]);
+$row = ['id' => 1, 'article_id' => 7, 'clang' => 0, 'table' => 'rex_vegafilm', 'table_parameters' => $blob, 'createdate' => 1700000000, 'updatedate' => 1700000000, 'createuser' => 'admin', 'updateuser' => 'admin'];
+$m = ProfileMigrator::migrate($row, [1, 2, 3], 'rex_yf_vegafilm');
+eq($m->tableParameters['column_id'], 'id', 'column_id from <t>_id');
+eq($m->tableParameters['column_segment_part_1'], 'title', 'segment_1 from <t>_name');
+eq($m->tableParameters['column_segment_part_2'], 'year', 'segment_2 from <t>_name_2');
+eq($m->tableParameters['column_segment_part_2_separator'], '-', 'default separator -');
+eq($m->clangId, 1, 'clang 0 -> 1');
+eq($m->articleId, 7, 'article copied');
+eq($m->tableName, 'rex_yf_vegafilm', 'resolved table used');
+eq($m->namespace, 'vegafilm', 'namespace from table base');
+ok(!isset($m->tableParameters['restriction_1_column']), 'no restriction when empty');
+ok(false !== strpos(implode(' ', $m->flags), 'Artikel-ID'), 'article flagged');
+
+// Restriction present + no name_2 + clang 1 -> 2.
+$blob2 = serialize(['t' => ['t_name' => 'n', 't_name_2' => '', 't_id' => 'pid', 't_restriction_field' => 'status', 't_restriction_operator' => '=', 't_restriction_value' => '1']]);
+$m2 = ProfileMigrator::migrate(['id' => 2, 'article_id' => 5, 'clang' => 1, 'table' => 't', 'table_parameters' => $blob2], [1, 2, 3], 'rex_yf_t');
+eq($m2->tableParameters['restriction_1_column'], 'status', 'restriction column');
+eq($m2->tableParameters['restriction_1_value'], '1', 'restriction value');
+ok(!isset($m2->tableParameters['column_segment_part_2']), 'no segment_2 when name_2 empty');
+eq($m2->clangId, 2, 'clang 1 -> 2');
+
+// Unresolved table -> empty + flag.
+$m3 = ProfileMigrator::migrate(['id' => 3, 'article_id' => 1, 'clang' => 0, 'table' => 'rex_foo', 'table_parameters' => serialize(['rex_foo' => ['rex_foo_name' => 'n', 'rex_foo_id' => 'id']])], [1, 2, 3], null);
+eq($m3->tableName, '', 'unresolved -> empty tableName');
+ok(false !== strpos(implode(' ', $m3->flags), 'zugeordnet'), 'unresolved flagged');
+
+// Clang not alignable -> fallback to min().
+$m4 = ProfileMigrator::migrate(['id' => 4, 'article_id' => 1, 'clang' => 9, 'table' => 't', 'table_parameters' => serialize(['t' => ['t_name' => 'n', 't_id' => 'id']])], [1, 2, 3], 'rex_yf_t');
+eq($m4->clangId, 1, 'clang 9 -> fallback min(1)');
+
 echo "\n{$GLOBALS['__tests']} checks, {$GLOBALS['__fail']} failures\n";
 exit($GLOBALS['__fail'] ? 1 : 0);

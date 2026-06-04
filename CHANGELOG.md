@@ -5,6 +5,18 @@ Alle nennenswerten Änderungen an diesem AddOn werden hier dokumentiert.
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [2.0.0-alpha4] – 2026-06-04
+
+### Hinzugefügt
+
+- Migration der seo42-URL-Generierung (`url_control_generate`) in Profile des `url`-Addons
+  (`rex_url_generator_profile`): neuer Schritt 5 mit Analyse → Vorschau → Anlegen, inkl.
+  clang-Verschiebung (+1, R4 0-basiert → R5 1-basiert), Tabellen-Zuordnung auf `rex_yf_<name>`,
+  ID-/Segment-Spalten und einfacher Einschränkung; anschließende URL-Neugenerierung über die
+  Addon-eigenen APIs (`Url\Cache`, `Url\UrlManagerSql`, `Url\Profile`). Namespace und
+  Artikel-ID werden vorbelegt und zur Prüfung markiert. `url_control_manager` (manuelle
+  URL-Methoden) wird nur als Nacharbeitspunkt gemeldet, nicht automatisch migriert.
+
 ## [2.0.0-alpha3] – 2026-06-04
 
 ### Behoben
