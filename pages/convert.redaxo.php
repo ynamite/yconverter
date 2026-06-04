@@ -17,6 +17,7 @@ use YConverter\Message;
 use YConverter\Package\Core;
 use YConverter\Report;
 use YConverter\Schema\FieldMapping;
+use YConverter\Schema\SchemaDetector;
 use YConverter\YConverter;
 use YConverter\YFormImporter;
 
@@ -247,7 +248,7 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
         return rex_view::info(rex_i18n::msg('yconverter_yform_no_custom_tables'));
     }
 
-    $allowed = YConverter\Schema\SchemaDetector::allowedTypes();
+    $allowed = SchemaDetector::allowedTypes();
 
     $out = '<form action="' . rex_url::currentBackendPage() . '" method="post">'
         . '<input type="hidden" name="func" value="yform_import" />'
