@@ -5,7 +5,7 @@ Alle nennenswerten Änderungen an diesem AddOn werden hier dokumentiert.
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
-## [Unveröffentlicht]
+## [2.0.0-alpha5] – 2026-06-05
 
 ### Hinzugefügt
 
@@ -22,6 +22,13 @@ die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
   seo42-URL-Migration sind nicht mehr Schritte 4/5 des Assistenten, sondern eigene
   Unterseiten (`convert.yform.php`, `convert.seo42.php`). Der Converter-Schritt umfasst jetzt
   Klonen → Migrieren → Medien.
+
+### Behoben
+
+- Beim erneuten Zuordnen einer Tabelle mit bestehenden Felddefinitionen bleiben die
+  Einstellungen `list_hidden` und `search` der Felder nun erhalten (wurden zuvor auf 0/1
+  zurückgesetzt).
+- Tippfehler im Navigationspunkt „Einstellungen" korrigiert.
 
 ## [2.0.0-alpha4] – 2026-06-04
 
