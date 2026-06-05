@@ -83,13 +83,14 @@ Unter *YConverter → Converter*:
 3. **Medien kopieren** – lädt die Dateien per HTTP von der Quell-URL bzw. kopiert sie aus dem
    konfigurierten `files/`-Verzeichnis nach `media/` (ohne `files/addons/`). Bereits
    vorhandene Dateien werden übersprungen.
-4. **Eigene Tabellen → YForm** – siehe nächster Abschnitt.
+Die beiden Folgeschritte – **eigene Tabellen → YForm** und **seo42-URL-Migration** – liegen in
+eigenen Reitern *„YForm"* und *„SEO42"* (unter *Converter*) und sind weiter unten beschrieben.
 
 ## Eigene Tabellen → YForm (Schema-Erkennung)
 
-Tabellen, die weder zum Core noch zu bekannten Addons gehören, können als YForm-Tabellen
-(`rex_yf_…`) angelegt werden. Statt die Feldtypen nur aus dem Spaltentyp abzuleiten, schlägt
-eine regelbasierte Erkennung passende YForm-Feldtypen vor.
+Im Reiter *Converter → YForm*: Tabellen, die weder zum Core noch zu bekannten Addons gehören,
+können als YForm-Tabellen (`rex_yf_…`) angelegt werden. Statt die Feldtypen nur aus dem
+Spaltentyp abzuleiten, schlägt eine regelbasierte Erkennung passende YForm-Feldtypen vor.
 
 ### Ablauf: Analysieren → Vorschau → Anwenden
 
@@ -110,6 +111,8 @@ eine regelbasierte Erkennung passende YForm-Feldtypen vor.
 | `createdate`/`updatedate`/`*_at`/`timestamp` (Integer-Zeitstempel) | `datestamp` – Werte werden per `FROM_UNIXTIME` nach `datetime` konvertiert |
 | `url`/`website`/`homepage`/`link` | `text` mit Attribut `type="url"` |
 | `author`/`editor`/`redakteur`/`bearbeiter`/`owner` | `be_user` |
+| `email`/`mail` | `email` |
+| `color`/`farbe`(`_hex`/`_code`) | `color_swatch` (wenn `mform` installiert, sonst Text) |
 | `*file*`/`image`/`foto`/`pdf` | `be_media` (`multiple` bei Plural-Namen oder Text-Spalten) |
 | `year`/`jahr` | `number` |
 | `price`/`betrag`/… (decimal) | `number` |
@@ -117,8 +120,11 @@ eine regelbasierte Erkennung passende YForm-Feldtypen vor.
 | `prefix_0` … `prefix_n` (eine Spalte je Sprache) | `lang_text` / `lang_textarea` / `lang_media` |
 | sonst | abgeleitet aus dem Spaltentyp |
 
-In der Vorschau stehen zusätzlich u. a. `custom_link` und `custom_link_multi` (AddOn `mform`)
-zur Auswahl; bei aktiver KI-Unterstützung können diese auch vorgeschlagen werden.
+Der Feldtyp-Katalog ist **abhängig von installierten Addons**: YForm-Core-Typen (u. a.
+`be_user`, `be_link`, `email`) sind immer verfügbar; `lang_*` benötigt `yform_lang_fields`,
+und `custom_link`, `custom_link_multi`, `imagelist`, `color_swatch`, `medialist`, `linklist`
+benötigen `mform`. Nicht installierte Typen werden weder in der Vorschau angeboten noch von
+der KI vorgeschlagen oder geschrieben.
 
 ### Mehrsprachige Felder
 
@@ -157,7 +163,7 @@ Tabellenstruktur über YForms eigene Funktion (`generateTableAndFields`) abgegli
 ## seo42 URL-Control → URL-Addon
 
 War auf der alten Seite seo42s URL-Generierung aktiv (`rex_url_control_generate`), bietet
-Schritt 5 an, daraus Profile für das [`url`-Addon](https://github.com/FriendsOfREDAXO/url)
+der Reiter *Converter → SEO42* an, daraus Profile für das [`url`-Addon](https://github.com/FriendsOfREDAXO/url)
 (`rex_url_generator_profile`) zu erzeugen. Ableitbar sind: ein Profil je altem Eintrag,
 `clang` +1 (R4 0-basiert → R5 1-basiert), ID-/Segment-Spalten und einfache Einschränkungen
 sowie die Zieltabelle (alte Tabelle → `rex_yf_<name>`). Namespace und Artikel-ID werden

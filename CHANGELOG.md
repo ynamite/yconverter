@@ -5,6 +5,24 @@ Alle nennenswerten Änderungen an diesem AddOn werden hier dokumentiert.
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.0.0/),
 die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
 
+## [Unveröffentlicht]
+
+### Hinzugefügt
+
+- Weitere YForm-Feldtypen im Katalog/in der Vorschau, **abhängig von installierten Addons**:
+  `be_link`, `email` (YForm-Core) sowie `imagelist`, `color_swatch`, `medialist`, `linklist`
+  (Addon `mform`). Nicht installierte Typen werden weder angeboten, von der KI vorgeschlagen
+  noch geschrieben (Downgrade auf den Spaltentyp).
+- Zusätzliche automatische Erkennung: E-Mail-Spalten → `email`-Feld (statt Text);
+  Farbspalten (`color`/`farbe`) → `color_swatch` (wenn `mform` installiert, sonst Text).
+
+### Geändert
+
+- **Eigene Reiter „YForm" und „SEO42"** unter *Converter*: Die YForm-Zuordnung und die
+  seo42-URL-Migration sind nicht mehr Schritte 4/5 des Assistenten, sondern eigene
+  Unterseiten (`convert.yform.php`, `convert.seo42.php`). Der Converter-Schritt umfasst jetzt
+  Klonen → Migrieren → Medien.
+
 ## [2.0.0-alpha4] – 2026-06-04
 
 ### Hinzugefügt
