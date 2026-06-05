@@ -295,9 +295,30 @@ $r = $detect->detect([['name' => 'username', 'type' => 'varchar(191)']], sampler
 ok('be_user' !== $r[0]->typeName, 'username is NOT be_user');
 
 $types = SchemaDetector::allowedTypes();
-foreach (['be_user', 'custom_link', 'custom_link_multi'] as $t) {
+foreach (['be_user', 'be_link', 'email', 'custom_link', 'custom_link_multi', 'imagelist', 'color_swatch', 'medialist', 'linklist'] as $t) {
     ok(in_array($t, $types, true), "allowedTypes contains $t");
 }
+
+echo "\nSchemaDetector — email + color_swatch + availability guard\n";
+$detect = new SchemaDetector();
+$r = $detect->detect([['name' => 'email', 'type' => 'varchar(191)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'email', 'email -> email field (YForm core)');
+$r = $detect->detect([['name' => 'contact_mail', 'type' => 'varchar(191)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'email', 'contact_mail -> email');
+$r = $detect->detect([['name' => 'farbe', 'type' => 'varchar(20)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'color_swatch', 'farbe -> color_swatch (mform available by default)');
+$r = $detect->detect([['name' => 'bg_color', 'type' => 'varchar(20)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'color_swatch', 'bg_color -> color_swatch');
+
+// Availability guard: when color_swatch's addon is absent, the rule downgrades to text.
+$coreOnly = ['text', 'textarea', 'choice', 'be_media', 'be_user', 'be_link', 'email', 'datetime', 'date', 'time', 'datestamp', 'integer', 'number', 'checkbox'];
+$guarded = new SchemaDetector(null, true, $coreOnly);
+$r = $guarded->detect([['name' => 'farbe', 'type' => 'varchar(20)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'text', 'color_swatch unavailable -> text fallback');
+eq($r[0]->confidence, FieldMapping::LOW, 'downgrade is LOW confidence');
+// email stays (core, always available)
+$r = $guarded->detect([['name' => 'email', 'type' => 'varchar(191)']], sampler([]), [1], false);
+eq($r[0]->typeName, 'email', 'email stays available in core-only set');
 
 require __DIR__ . '/../lib/YConverter/Url/UrlProfileMapping.php';
 

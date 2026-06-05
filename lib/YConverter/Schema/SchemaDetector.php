@@ -21,11 +21,17 @@ class SchemaDetector
     private $ai;
     /** @var bool whether sampled values may be sent to the AI provider */
     private $aiSendSamples;
+    /** @var array<int,string> field types actually offerable (installed addons); rule outputs not in here are downgraded */
+    private $availableTypes;
 
-    public function __construct(?AiFieldProvider $ai = null, bool $aiSendSamples = true)
+    /**
+     * @param array<int,string> $availableTypes types whose providing addon is installed; empty = all (see allowedTypes())
+     */
+    public function __construct(?AiFieldProvider $ai = null, bool $aiSendSamples = true, array $availableTypes = [])
     {
         $this->ai = $ai;
         $this->aiSendSamples = $aiSendSamples;
+        $this->availableTypes = $availableTypes ?: self::allowedTypes();
     }
 
     /**
@@ -88,6 +94,16 @@ class SchemaDetector
         foreach ($this->rules() as $rule) {
             if (!$this->ruleMatches($rule, $name, $type, $sample)) {
                 continue;
+            }
+            // Guard: if the rule targets a field type whose addon is not installed, fall back
+            // to the type-based mapping instead of writing a broken field.
+            if (!in_array($rule['field'], $this->availableTypes, true)) {
+                return new FieldMapping($name, $this->typeFallback($type), [
+                    'dbType' => $type,
+                    'confidence' => FieldMapping::LOW,
+                    'reason' => sprintf('Feldtyp "%s" nicht verfügbar (Addon fehlt) — aus dem Spaltentyp abgeleitet', $rule['field']),
+                    'source' => 'type',
+                ]);
             }
             $params = isset($rule['params']) ? $rule['params'] : [];
             if (isset($rule['paramsFn']) && is_callable($rule['paramsFn'])) {
@@ -203,12 +219,13 @@ class SchemaDetector
                 'reason' => 'Spaltenname deutet auf eine Datei/ein Medium hin',
             ],
             [
+                // YForm core has a dedicated `email` value field.
                 'id' => 'email',
                 'name' => '/(^|_)(e?_?mail)$/i',
                 'dbType' => '/^(varchar|char|text)/',
-                'field' => 'text',
+                'field' => 'email',
                 'confidence' => FieldMapping::MEDIUM,
-                'reason' => 'Sieht nach E-Mail aus — ggf. E-Mail-Validator ergänzen',
+                'reason' => 'Spaltenname deutet auf eine E-Mail-Adresse hin',
             ],
             [
                 'id' => 'be-user',
@@ -217,6 +234,15 @@ class SchemaDetector
                 'field' => 'be_user',
                 'confidence' => FieldMapping::MEDIUM,
                 'reason' => 'Spaltenname deutet auf einen Backend-Benutzer hin',
+            ],
+            [
+                // mform's color_swatch picker; downgraded to text when mform is absent.
+                'id' => 'color-swatch',
+                'name' => '/(^|_)(colou?r|farbe)(_?(swatch|hex|code))?$/i',
+                'dbType' => '/^(varchar|char|text)/',
+                'field' => 'color_swatch',
+                'confidence' => FieldMapping::MEDIUM,
+                'reason' => 'Spaltenname deutet auf einen Farbwert hin (mform)',
             ],
             [
                 'id' => 'year-number',
@@ -478,7 +504,7 @@ class SchemaDetector
         }
 
         try {
-            $proposals = $this->ai->proposeFields($columns, self::allowedTypes(), $clangIds);
+            $proposals = $this->ai->proposeFields($columns, $this->availableTypes, $clangIds);
         } catch (\Throwable $e) {
             return $mappings; // AI failure must never worsen the result
         }
@@ -502,19 +528,21 @@ class SchemaDetector
     }
 
     /**
-     * The YForm field types the detector/AI may produce and the preview offers. Single
-     * source of truth (also used by the Step-4 preview dropdown). Some require an addon:
-     * lang_* → yform_lang_fields, custom_link* → mform; be_user is YForm core.
+     * The full catalogue of YForm field types the detector/AI may produce and the preview
+     * offers. Single source of truth; FieldTypes::available() filters this to the types whose
+     * providing addon is installed. Core types (YForm): text, textarea, choice, be_media,
+     * be_user, be_link, email, datetime, date, time, datestamp, integer, number, checkbox.
+     * yform_lang_fields: lang_*. mform: custom_link*, imagelist, color_swatch, medialist, linklist.
      *
      * @return array<int,string>
      */
     public static function allowedTypes(): array
     {
         return [
-            'text', 'textarea', 'choice', 'be_media', 'be_user', 'email',
+            'text', 'textarea', 'choice', 'be_media', 'be_user', 'be_link', 'email',
             'datetime', 'date', 'time', 'datestamp', 'integer', 'number', 'checkbox',
             'lang_text', 'lang_textarea', 'lang_media',
-            'custom_link', 'custom_link_multi',
+            'custom_link', 'custom_link_multi', 'imagelist', 'color_swatch', 'medialist', 'linklist',
         ];
     }
 }

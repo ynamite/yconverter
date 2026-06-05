@@ -13,6 +13,7 @@
 namespace YConverter;
 
 use YConverter\Schema\FieldMapping;
+use YConverter\Schema\FieldTypes;
 use YConverter\Schema\LangDataMerger;
 use YConverter\Schema\SchemaDetector;
 use YConverter\Schema\ValueSampler;
@@ -123,7 +124,7 @@ class YFormImporter
             $existingTypes[$name] = $mapping->typeName;
         }
 
-        $detector = new SchemaDetector(AiProviderFactory::fromConfig($this->config), $this->config->getAiSendSamples());
+        $detector = new SchemaDetector(AiProviderFactory::fromConfig($this->config), $this->config->getAiSendSamples(), FieldTypes::available());
         $detected = $detector->detect($columns, $sampler, $clangIds, $langAvailable, $existingTypes);
 
         if (!$existingMappings) {
