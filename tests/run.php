@@ -48,6 +48,11 @@ eq($m2->params['choices'], 'offline=0,online=1', 'params override');
 eq($m2->confidence, FieldMapping::HIGH, 'confidence override');
 eq($m2->label, 'Status', 'explicit label wins');
 eq($m2->source, 'rule:status-choice', 'source override');
+eq($m->listHidden, 0, 'listHidden defaults to 0');
+eq($m->search, 1, 'search defaults to 1');
+$m3 = new FieldMapping('x', 'text', ['listHidden' => 1, 'search' => 0]);
+eq($m3->listHidden, 1, 'listHidden override (preserved from existing def)');
+eq($m3->search, 0, 'search override');
 
 require __DIR__ . '/../lib/YConverter/Schema/SchemaDetector.php';
 

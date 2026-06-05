@@ -191,6 +191,8 @@ class YFormImporter
                 'confidence' => FieldMapping::HIGH,
                 'source' => 'existing',
                 'reason' => 'Bestehende YForm-Felddefinition übernommen',
+                'listHidden' => (int) (isset($row['list_hidden']) ? $row['list_hidden'] : 0),
+                'search' => (int) (isset($row['search']) ? $row['search'] : 1),
             ]);
         }
 
@@ -404,8 +406,8 @@ class YFormImporter
                 'type_id' => $mapping->typeId,
                 'type_name' => $mapping->typeName,
                 'db_type' => $mapping->dbType,
-                'list_hidden' => 0,
-                'search' => 1,
+                'list_hidden' => $mapping->listHidden,
+                'search' => $mapping->search,
                 'name' => $mapping->name,
                 'label' => $mapping->label,
                 'createdate' => $now,

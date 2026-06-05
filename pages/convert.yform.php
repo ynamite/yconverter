@@ -166,6 +166,8 @@ function renderYformPreview(array $previews, rex_csrf_token $csrfToken)
                 . '<td><code>' . rex_escape($colLabel) . '</code>'
                 . '<input type="hidden" name="mapping[' . rex_escape($key) . '][' . $i . '][name]" value="' . rex_escape($m->name) . '" />'
                 . '<input type="hidden" name="mapping[' . rex_escape($key) . '][' . $i . '][dbType]" value="' . rex_escape($m->dbType) . '" />'
+                . '<input type="hidden" name="mapping[' . rex_escape($key) . '][' . $i . '][list_hidden]" value="' . (int) $m->listHidden . '" />'
+                . '<input type="hidden" name="mapping[' . rex_escape($key) . '][' . $i . '][search]" value="' . (int) $m->search . '" />'
                 . ($m->members ? '<input type="hidden" name="mapping[' . rex_escape($key) . '][' . $i . '][members]" value="' . rex_escape(json_encode($m->members)) . '" />' : '')
                 . '</td>'
                 . '<td>' . $select . '</td>'
@@ -221,6 +223,8 @@ function buildMappingsFromPost(array $postedFields)
             'dbType' => isset($row['dbType']) ? (string) $row['dbType'] : '',
             'params' => $params,
             'source' => 'manual',
+            'listHidden' => (int) (isset($row['list_hidden']) ? $row['list_hidden'] : 0),
+            'search' => (int) (isset($row['search']) ? $row['search'] : 1),
         ];
         if (!empty($row['members'])) {
             $decoded = json_decode((string) $row['members'], true);

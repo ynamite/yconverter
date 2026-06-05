@@ -44,9 +44,13 @@ class FieldMapping
     public $members = [];
     /** @var string optional data transform to run at apply, e.g. 'unixToDatetime' */
     public $transform = '';
+    /** @var int rex_yform_field.list_hidden (0 = shown in the list) */
+    public $listHidden = 0;
+    /** @var int rex_yform_field.search (1 = searchable) */
+    public $search = 1;
 
     /**
-     * @param array{label?:string,typeId?:string,dbType?:string,params?:array,confidence?:string,reason?:string,source?:string,members?:array,transform?:string} $opts
+     * @param array{label?:string,typeId?:string,dbType?:string,params?:array,confidence?:string,reason?:string,source?:string,members?:array,transform?:string,listHidden?:int,search?:int} $opts
      */
     public function __construct(string $name, string $typeName, array $opts = [])
     {
@@ -54,7 +58,7 @@ class FieldMapping
         $this->typeName = $typeName;
         $this->label = isset($opts['label']) ? $opts['label'] : self::prettify($name);
 
-        foreach (['typeId', 'dbType', 'params', 'confidence', 'reason', 'source', 'members', 'transform'] as $key) {
+        foreach (['typeId', 'dbType', 'params', 'confidence', 'reason', 'source', 'members', 'transform', 'listHidden', 'search'] as $key) {
             if (array_key_exists($key, $opts)) {
                 $this->$key = $opts[$key];
             }
