@@ -25,7 +25,10 @@ if ($func && !$csrfToken->isValid()) {
     return;
 }
 if (!($config = new Config())->isValid()) {
-    echo rex_view::error(rex_i18n::msg('yconverter_invalid_config') . '<br />- ' . implode('<br />- ', $config->getValidationErrors()));
+    echo rex_view::error(
+        rex_i18n::msg('yconverter_invalid_config') . '<br />- ' . implode('<br />- ', $config->getValidationErrors())
+        . '<br /><a href="' . rex_url::backendPage('yconverter/settings') . '">' . rex_i18n::msg('yconverter_open_settings') . '</a>'
+    );
     return;
 }
 
