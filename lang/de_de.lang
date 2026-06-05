@@ -5,6 +5,8 @@ subpage_xform = XForm
 subpage_settings = Einstelllungen
 subpage_settings_general = Allgemein
 subpage_settings_ai = KI-Unterstützung
+subpage_yform = YForm
+subpage_seo42 = SEO42
 
 
 
@@ -41,7 +43,7 @@ yconverter_update_table_structures_to_last_version = Tabellenstrukturen auf die 
 yconverter_cronjob_info = Das Intervall muss am Ende neu gesetzt werden.
 
 
-yconverter_intro = So gehst du vor: hinterlege zuerst Quelldatenbank, Version und Medien-Quellpfad in den Einstellungen und arbeite dann die Schritte 1–4 der Reihe nach ab. Die Schritte sind wiederholbar.
+yconverter_intro = So gehst du vor: hinterlege zuerst Quelldatenbank, Version und Medien-Quellpfad in den Einstellungen und arbeite dann die Schritte 1–3 der Reihe nach ab. Die Schritte sind wiederholbar. Eigene Tabellen nach YForm und die seo42-URL-Migration findest du in den Reitern „YForm" und „SEO42".
 yconverter_open_settings = Einstellungen öffnen
 yconverter_done = erledigt
 yconverter_step1_heading = Tabellen klonen

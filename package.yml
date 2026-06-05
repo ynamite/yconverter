@@ -12,6 +12,8 @@ page:
             title: 'translate:subpage_convert'
             subpages:
                 redaxo: { title: 'translate:subpage_redaxo' }
+                yform: { title: 'translate:subpage_yform' }
+                seo42: { title: 'translate:subpage_seo42' }
         settings:
             title: 'translate:subpage_settings'
             subpages:
